@@ -33,7 +33,7 @@ const Navbar = () => {
                 <span className="text-white font-bold text-xl">S</span>
               </div>
               <span className="text-xl font-bold text-gray-900 hidden sm:block">
-                Social
+                SnapZy
               </span>
             </Link>
           </div>

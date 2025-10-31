@@ -181,4 +181,102 @@ router.post('/unfollow/:userId', isAuthenticated, async (req, res) => {
   }
 });
 
+// @route   GET /api/profile/:userId/followers
+// @desc    Get user's followers
+// @access  Public
+router.get('/:userId/followers', async (req, res) => {
+  try {
+    const user = await User.findById(req.params.userId)
+      .populate('followers', 'name username avatar bio');
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const followers = user.followers.map(follower => ({
+      id: follower._id,
+      name: follower.name,
+      username: follower.username,
+      avatar: follower.avatar,
+      bio: follower.bio,
+      isFollowing: req.session.userId ? follower.following.includes(req.session.userId) : false
+    }));
+
+    res.json({ followers, count: followers.length });
+  } catch (error) {
+    console.error('Fetch followers error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   GET /api/profile/:userId/following
+// @desc    Get users that this user is following
+// @access  Public
+router.get('/:userId/following', async (req, res) => {
+  try {
+    const user = await User.findById(req.params.userId)
+      .populate('following', 'name username avatar bio');
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const following = user.following.map(followedUser => ({
+      id: followedUser._id,
+      name: followedUser.name,
+      username: followedUser.username,
+      avatar: followedUser.avatar,
+      bio: followedUser.bio,
+      isFollowing: true
+    }));
+
+    res.json({ following, count: following.length });
+  } catch (error) {
+    console.error('Fetch following error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   GET /api/profile/:userId/stats
+// @desc    Get user profile statistics
+// @access  Public
+router.get('/:userId/stats', async (req, res) => {
+  try {
+    const user = await User.findById(req.params.userId);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const Post = require('../models/Post');
+
+    // Get total likes on user's posts
+    const posts = await Post.find({ author: req.params.userId });
+    const totalLikes = posts.reduce((sum, post) => sum + post.likesCount, 0);
+    const totalComments = posts.reduce((sum, post) => sum + post.commentsCount, 0);
+    const totalShares = posts.reduce((sum, post) => sum + post.sharesCount, 0);
+
+    // Get posts with media count
+    const mediaPostsCount = await Post.countDocuments({
+      author: req.params.userId,
+      'images.0': { $exists: true }
+    });
+
+    res.json({
+      stats: {
+        posts: user.postsCount,
+        followers: user.followersCount,
+        following: user.followingCount,
+        totalLikes,
+        totalComments,
+        totalShares,
+        mediaPosts: mediaPostsCount
+      }
+    });
+  } catch (error) {
+    console.error('Fetch stats error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router;

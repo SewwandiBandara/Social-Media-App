@@ -2,7 +2,13 @@
   "permissions": {
     "allow": [
       "Bash(npm run build:*)",
-      "Bash(node -c:*)"
+      "Bash(node -c:*)",
+      "Bash(if [ -f \".git/index.lock\" ])",
+      "Bash(then rm -f \".git/index.lock\")",
+      "Bash(else echo \"No git lock file found\")",
+      "Bash(fi)",
+      "Bash(npm install:*)",
+      "Bash(timeout 5 npm start)"
     ],
     "deny": [],
     "ask": []
