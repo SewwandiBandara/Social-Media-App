@@ -1,14 +1,8 @@
 const express = require('express');
 const router = express.Router();
+const bcrypt = require('bcryptjs');
 const User = require('../models/User');
-
-// Middleware to check if user is authenticated
-const isAuthenticated = (req, res, next) => {
-  if (!req.session.userId) {
-    return res.status(401).json({ message: 'Not authenticated' });
-  }
-  next();
-};
+const { isAuthenticated } = require('../middleware/auth');
 
 // @route   GET /api/profile
 // @desc    Get current user's profile
@@ -275,6 +269,189 @@ router.get('/:userId/stats', async (req, res) => {
     });
   } catch (error) {
     console.error('Fetch stats error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// ==================== AUTHENTICATION ROUTES ====================
+
+// @route   POST /api/profile/auth/register
+// @desc    Register a new user from profile context
+// @access  Public
+router.post('/auth/register', async (req, res) => {
+  try {
+    const { name, username, email, password } = req.body;
+
+    // Validation
+    if (!name || !username || !email || !password) {
+      return res.status(400).json({ message: 'Please provide all required fields' });
+    }
+
+    // Validate password strength
+    if (password.length < 6) {
+      return res.status(400).json({ message: 'Password must be at least 6 characters long' });
+    }
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ $or: [{ email: email.toLowerCase() }, { username: username.toLowerCase() }] });
+    if (existingUser) {
+      return res.status(400).json({ message: 'User with this email or username already exists' });
+    }
+
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Create new user
+    const user = new User({
+      name,
+      username: username.toLowerCase(),
+      email: email.toLowerCase(),
+      password: hashedPassword
+    });
+
+    await user.save();
+
+    // Create session
+    req.session.userId = user._id;
+
+    // Return user data (excluding password)
+    const userResponse = {
+      id: user._id,
+      name: user.name,
+      username: user.username,
+      email: user.email,
+      bio: user.bio,
+      location: user.location,
+      website: user.website,
+      avatar: user.avatar,
+      followers: user.followersCount,
+      following: user.followingCount,
+      posts: user.postsCount,
+      joined: user.getJoinedDate()
+    };
+
+    res.status(201).json({
+      message: 'User registered successfully',
+      user: userResponse
+    });
+  } catch (error) {
+    console.error('Registration error:', error);
+    res.status(500).json({ message: 'Server error during registration' });
+  }
+});
+
+// @route   POST /api/profile/auth/login
+// @desc    Login user from profile context
+// @access  Public
+router.post('/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // Validation
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Please provide email and password' });
+    }
+
+    // Find user
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    // Check password
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    // Create session
+    req.session.userId = user._id;
+
+    // Return user data (excluding password)
+    const userResponse = {
+      id: user._id,
+      name: user.name,
+      username: user.username,
+      email: user.email,
+      bio: user.bio,
+      location: user.location,
+      website: user.website,
+      avatar: user.avatar,
+      followers: user.followersCount,
+      following: user.followingCount,
+      posts: user.postsCount,
+      joined: user.getJoinedDate()
+    };
+
+    res.json({
+      message: 'Login successful',
+      user: userResponse
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ message: 'Server error during login' });
+  }
+});
+
+// @route   POST /api/profile/auth/logout
+// @desc    Logout user from profile context
+// @access  Private
+router.post('/auth/logout', isAuthenticated, (req, res) => {
+  req.session.destroy((err) => {
+    if (err) {
+      console.error('Logout error:', err);
+      return res.status(500).json({ message: 'Error logging out' });
+    }
+    res.clearCookie('connect.sid');
+    res.json({
+      message: 'Logout successful',
+      redirectTo: '/login' // Can be used by frontend to redirect
+    });
+  });
+});
+
+// @route   GET /api/profile/auth/session
+// @desc    Check current session status
+// @access  Public
+router.get('/auth/session', async (req, res) => {
+  try {
+    if (!req.session || !req.session.userId) {
+      return res.json({
+        authenticated: false,
+        user: null
+      });
+    }
+
+    const user = await User.findById(req.session.userId).select('-password');
+    if (!user) {
+      return res.json({
+        authenticated: false,
+        user: null
+      });
+    }
+
+    const userResponse = {
+      id: user._id,
+      name: user.name,
+      username: user.username,
+      email: user.email,
+      bio: user.bio,
+      location: user.location,
+      website: user.website,
+      avatar: user.avatar,
+      followers: user.followersCount,
+      following: user.followingCount,
+      posts: user.postsCount,
+      joined: user.getJoinedDate()
+    };
+
+    res.json({
+      authenticated: true,
+      user: userResponse
+    });
+  } catch (error) {
+    console.error('Session check error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

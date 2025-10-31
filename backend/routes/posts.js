@@ -2,14 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Post = require('../models/Post');
 const User = require('../models/User');
-
-// Middleware to check if user is authenticated
-const isAuthenticated = (req, res, next) => {
-  if (!req.session.userId) {
-    return res.status(401).json({ message: 'Not authenticated' });
-  }
-  next();
-};
+const { isAuthenticated } = require('../middleware/auth');
 
 // @route   GET /api/posts
 // @desc    Get all posts (feed)
