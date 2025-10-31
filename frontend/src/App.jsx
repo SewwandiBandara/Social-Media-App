@@ -2,6 +2,7 @@ import { BrowserRouter,Routes,Route} from "react-router-dom";
 import Navbar from "./components/Navbar";
 import Home from "./pages/Home";
 import Messages from "./pages/Messages";
+import Notifications from "./pages/Notifications";
 import NotFound from "./pages/NotFound";
 
 
@@ -14,6 +15,7 @@ function App() {
       <Routes>
         <Route element={<Home/>} path="/"/>
         <Route element={<Messages/>} path="/messages"/>
+        <Route element={<Notifications/>} path="/notifications"/>
         {/* Default route for 404 Not Found */}
         <Route element={<NotFound/>} path="*"/>
       </Routes>
