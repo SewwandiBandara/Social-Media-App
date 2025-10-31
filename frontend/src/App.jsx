@@ -4,7 +4,7 @@ import Home from "./pages/Home";
 import NotFound from "./pages/NotFound";
 import Messages from "./pages/Messages";
 import Notifications from "./pages/Notifications";
-
+import Settings from "./pages/Settings";
 
 function App() {
   
@@ -18,6 +18,7 @@ function App() {
         {/* Other pages */}
         <Route element={<Messages/>} path="/messages"/>
         <Route element={<Notifications/>} path="/notifications"/>
+        <Route element={<Settings/>} path="/settings"/>
       </Routes>
     </BrowserRouter>
   )
