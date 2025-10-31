@@ -123,8 +123,15 @@ const Navbar = () => {
             </Link>
 
             {/* Notifications */}
-            <button
+            {/* <button
               className="p-3 rounded-lg hover:bg-gray-100 transition-colors relative text-gray-600"
+              title="Notifications"
+            > */}
+            <Link
+              to="/notifications"
+              className={`p-3 rounded-lg hover:bg-gray-100 transition-colors relative group ${
+                isActive('/messages') ? 'text-purple-600' : 'text-gray-600'
+              }`}
               title="Notifications"
             >
               <svg
@@ -142,7 +149,8 @@ const Navbar = () => {
               </svg>
               {/* Notification Badge */}
               <span className="absolute top-2 right-2 h-2 w-2 bg-red-500 rounded-full"></span>
-            </button>
+            {/* </button> */}
+            </Link>
 
             {/* Create Post Button */}
             <button className="ml-2 px-4 py-2 bg-purple-600 text-white rounded-full hover:bg-purple-700 transition-colors font-medium flex items-center space-x-2">
