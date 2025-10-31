@@ -1,9 +1,15 @@
+<<<<<<< HEAD
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+=======
+import { BrowserRouter,Routes,Route} from "react-router-dom";
+// navbar imports
+>>>>>>> origin/main
 import Navbar from "./components/Navbar";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Home from "./pages/Home";
 import Messages from "./pages/Messages";
+<<<<<<< HEAD
 import Notifications from "./pages/Notifications";
 import Settings from "./pages/Settings";
 import Profile from "./pages/Profile";
@@ -26,10 +32,21 @@ function AppContent() {
     );
   }
 
+=======
+import NotFound from "./pages/NotFound";
+import Messages from "./pages/Messages";
+import Notifications from "./pages/Notifications";
+import Settings from "./pages/Settings";
+import Profile from "./pages/Profile";
+
+function App() {
+
+>>>>>>> origin/main
   return (
     <>
       {isAuthenticated && <Navbar />}
       <Routes>
+<<<<<<< HEAD
         {/* Public routes - redirect to home if authenticated */}
         <Route
           path="/login"
@@ -84,6 +101,13 @@ function AppContent() {
 
         {/* 404 Not Found */}
         <Route path="*" element={<NotFound />} />
+=======
+        <Route element={<Home/>} path="/"/>
+        <Route element={<Messages/>} path="/messages"/>
+        {/* Default route for 404 Not Found */}
+        <Route element={<NotFound/>} path="*"/>
+
+>>>>>>> origin/main
       </Routes>
     </>
   );

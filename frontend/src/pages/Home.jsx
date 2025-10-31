@@ -103,10 +103,13 @@ const Home = () => {
                   <span className="text-gray-600">Posts</span>
                   <span className="font-semibold text-gray-800">89</span>
                 </div>
+<<<<<<< HEAD
                 {/* settings */}
                 {/* <div className="flex justify-between text-md mt-2">
                   <span className="text-gray-900"><a href="/settings">Settings</a></span>
                 </div> */}
+=======
+>>>>>>> origin/main
               </div>
             </div>
           </div>
@@ -280,4 +283,8 @@ const Home = () => {
   );
 };
 
+<<<<<<< HEAD
 export default Home; 
+=======
+export default Home;
+>>>>>>> origin/main
