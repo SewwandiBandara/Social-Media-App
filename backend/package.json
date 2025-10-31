@@ -11,13 +11,21 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+<<<<<<< HEAD
+    "bcryptjs": "^2.4.3",
+=======
     "bcryptjs": "^3.0.2",
+>>>>>>> origin/main
     "body-parser": "^2.2.0",
     "connect-mongo": "^5.1.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
+<<<<<<< HEAD
+    "express-session": "^1.18.0",
+=======
     "express-session": "^1.18.2",
+>>>>>>> origin/main
     "mongoose": "^8.19.2"
   }
 }
