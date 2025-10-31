@@ -104,9 +104,9 @@ const Home = () => {
                   <span className="font-semibold text-gray-800">89</span>
                 </div>
                 {/* settings */}
-                <div className="flex justify-between text-md mt-2">
+                {/* <div className="flex justify-between text-md mt-2">
                   <span className="text-gray-900"><a href="/settings">Settings</a></span>
-                </div>
+                </div> */}
               </div>
             </div>
           </div>

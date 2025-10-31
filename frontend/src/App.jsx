@@ -5,6 +5,7 @@ import NotFound from "./pages/NotFound";
 import Messages from "./pages/Messages";
 import Notifications from "./pages/Notifications";
 import Settings from "./pages/Settings";
+import Profile from "./pages/Profile";
 
 function App() {
   
@@ -19,6 +20,7 @@ function App() {
         <Route element={<Messages/>} path="/messages"/>
         <Route element={<Notifications/>} path="/notifications"/>
         <Route element={<Settings/>} path="/settings"/>
+        <Route element={<Profile/>} path="/profile"/>
       </Routes>
     </BrowserRouter>
   )
