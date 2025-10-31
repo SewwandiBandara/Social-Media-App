@@ -1,5 +1,5 @@
 import { BrowserRouter,Routes,Route} from "react-router-dom";
-// navbar imports
+import Navbar from "./components/Navbar";
 import Home from "./pages/Home";
 import NotFound from "./pages/NotFound";
 
@@ -9,12 +9,12 @@ function App() {
   
   return (
     <BrowserRouter>
-    <Routes>
+      <Navbar />
+      <Routes>
         <Route element={<Home/>} path="/"/>
-         {/* Default route for 404 Not Found */}
-        <Route element={<NotFound/>} path="*"/> 
-      
-    </Routes>
+        {/* Default route for 404 Not Found */}
+        <Route element={<NotFound/>} path="*"/>
+      </Routes>
     </BrowserRouter>
   )
 }
