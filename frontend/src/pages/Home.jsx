@@ -6,6 +6,7 @@ const Home = () => {
     <div>
         <Navbar active={"/"} />
       <h2>Home page</h2>
+      
     </div>
   )
 }
