@@ -3,7 +3,7 @@ import { BrowserRouter,Routes,Route} from "react-router-dom";
 import Home from "./pages/Home";
 import NotFound from "./pages/NotFound";
 import Messages from "./pages/Messages";
-
+import Notifications from "./pages/Notifications";
 
 
 function App() {
@@ -17,6 +17,7 @@ function App() {
         <Route element={<NotFound/>} path="*"/>
         {/* Other pages */}
         <Route element={<Messages/>} path="/messages"/>
+        <Route element={<Notifications/>} path="/notifications"/>
       </Routes>
     </BrowserRouter>
   )
