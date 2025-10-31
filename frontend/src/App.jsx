@@ -4,6 +4,7 @@ import Home from "./pages/Home";
 import Messages from "./pages/Messages";
 import Notifications from "./pages/Notifications";
 import Settings from "./pages/Settings";
+import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 
 
@@ -18,6 +19,7 @@ function App() {
         <Route element={<Messages/>} path="/messages"/>
         <Route element={<Notifications/>} path="/notifications"/>
         <Route element={<Settings/>} path="/settings"/>
+        <Route element={<Profile/>} path="/profile"/>
         {/* Default route for 404 Not Found */}
         <Route element={<NotFound/>} path="*"/>
       </Routes>
