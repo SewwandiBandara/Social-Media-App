@@ -82,7 +82,7 @@ const Register = () => {
 
     if (result.success) {
       // Registration successful
-      navigate('/');
+      navigate('/login');
     } else {
       // Registration failed
       setErrors({ submit: result.message || 'Registration failed. Please try again.' });
