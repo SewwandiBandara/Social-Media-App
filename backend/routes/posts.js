@@ -427,4 +427,63 @@ router.post('/:postId/comment', isAuthenticated, async (req, res) => {
   }
 });
 
+// @route   POST /api/posts/:postId/share
+// @desc    Share a post
+// @access  Private
+router.post('/:postId/share', isAuthenticated, async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.postId);
+
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found' });
+    }
+
+    // Check if already shared
+    const alreadyShared = post.shares.some(share => share.user.toString() === req.session.userId);
+
+    if (alreadyShared) {
+      return res.status(400).json({ message: 'Post already shared' });
+    }
+
+    post.shares.push({
+      user: req.session.userId,
+      sharedAt: new Date()
+    });
+
+    await post.save();
+
+    res.status(201).json({
+      message: 'Post shared successfully',
+      sharesCount: post.sharesCount
+    });
+  } catch (error) {
+    console.error('Share post error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   DELETE /api/posts/:postId/share
+// @desc    Unshare a post
+// @access  Private
+router.delete('/:postId/share', isAuthenticated, async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.postId);
+
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found' });
+    }
+
+    post.shares = post.shares.filter(share => share.user.toString() !== req.session.userId);
+    await post.save();
+
+    res.json({
+      message: 'Post unshared successfully',
+      sharesCount: post.sharesCount
+    });
+  } catch (error) {
+    console.error('Unshare post error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router;

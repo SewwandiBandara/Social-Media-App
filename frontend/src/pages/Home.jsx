@@ -23,6 +23,9 @@ const Home = () => {
   const [commentingPostId, setCommentingPostId] = useState(null);
   const [loadingComments, setLoadingComments] = useState(false);
   const [postReactions, setPostReactions] = useState({});
+  const [shareModal, setShareModal] = useState(null);
+  const [sharingPostId, setSharingPostId] = useState(null);
+  const [sharedPosts, setSharedPosts] = useState({});
 
   // Fetch posts on component mount
   useEffect(() => {
@@ -164,6 +167,48 @@ const Home = () => {
   const hasReaction = (postId, reactionId) => {
     const key = `${postId}-${reactionId}`;
     return postReactions[key] || false;
+  };
+
+  const handleShare = async (postId, shareType = 'feed') => {
+    try {
+      setSharingPostId(postId);
+      await postsAPI.sharePost(postId);
+
+      // Update shared posts state
+      setSharedPosts(prev => ({
+        ...prev,
+        [postId]: true
+      }));
+
+      // Update post shares count
+      const updatedPosts = posts.map(post => {
+        if (post._id === postId) {
+          return {
+            ...post,
+            sharesCount: (post.sharesCount || 0) + 1
+          };
+        }
+        return post;
+      });
+      setPosts(updatedPosts);
+
+      // Close modal and show success
+      setShareModal(null);
+      alert(`Post shared to ${shareType === 'feed' ? 'your feed' : shareType}!`);
+    } catch (err) {
+      console.error('Error sharing post:', err);
+      alert(err.message || 'Failed to share post. You may have already shared it.');
+    } finally {
+      setSharingPostId(null);
+    }
+  };
+
+  const openShareModal = (post) => {
+    setShareModal(post);
+  };
+
+  const closeShareModal = () => {
+    setShareModal(null);
   };
 
   return (
@@ -378,8 +423,13 @@ const Home = () => {
                       </svg>
                       <span className="font-medium">Comment</span>
                     </button>
-                    <button className="flex items-center space-x-2 px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors">
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <button
+                      onClick={() => openShareModal(post)}
+                      className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+                        sharedPosts[post._id] ? 'text-green-600' : 'text-gray-600 hover:bg-gray-100'
+                      }`}
+                    >
+                      <svg className="w-6 h-6" fill={sharedPosts[post._id] ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                       </svg>
                       <span className="font-medium">Share</span>
@@ -436,6 +486,84 @@ const Home = () => {
           </div>
         </div>
       </div>
+
+      {/* Share Modal */}
+      {shareModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-sm w-full">
+            {/* Modal Header */}
+            <div className="bg-gray-50 px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-800">Share Post</h3>
+              <button
+                onClick={closeShareModal}
+                className="text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Share Options */}
+            <div className="p-6 space-y-3">
+              <button
+                onClick={() => handleShare(shareModal._id, 'your feed')}
+                disabled={sharingPostId === shareModal._id}
+                className="w-full flex items-center space-x-4 p-4 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                </div>
+                <div className="text-left">
+                  <p className="font-semibold text-gray-800">Share to Your Feed</p>
+                  <p className="text-sm text-gray-500">Post this to your profile</p>
+                </div>
+              </button>
+
+              <button
+                onClick={() => handleShare(shareModal._id, 'message')}
+                disabled={sharingPostId === shareModal._id}
+                className="w-full flex items-center space-x-4 p-4 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                </div>
+                <div className="text-left">
+                  <p className="font-semibold text-gray-800">Send via Message</p>
+                  <p className="text-sm text-gray-500">Share in a direct message</p>
+                </div>
+              </button>
+
+              <button
+                onClick={() => handleShare(shareModal._id, 'story')}
+                disabled={sharingPostId === shareModal._id}
+                className="w-full flex items-center space-x-4 p-4 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+                  <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4v.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div className="text-left">
+                  <p className="font-semibold text-gray-800">Share to Story</p>
+                  <p className="text-sm text-gray-500">Post to your story</p>
+                </div>
+              </button>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="bg-gray-50 px-6 py-3 border-t border-gray-200">
+              <p className="text-xs text-gray-500 text-center">
+                {sharedPosts[shareModal._id] ? '✓ You have already shared this post' : 'Choose where to share this post'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Comments Modal */}
       {selectedPostForComments && (
