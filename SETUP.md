@@ -24,7 +24,7 @@ npm install
 The `.env` file already contains:
 
 ```env
-MONGODB_URI=mongodb+srv://madusha:CtIRDhrfiN4JJEJv@eduspark.jwoeqir.mongodb.net/social-media-app?retryWrites=true&w=majority
+MONGODB_URI=mongodb+srv://<your_username>:CtIRDhrfiN4JJEJv@<your_database>.jwoeqir.mongodb.net/<your_db>?retryWrites=true&w=majority
 SESSION_SECRET=your-super-secret-session-key-change-in-production-2024
 NODE_ENV=development
 PORT=5000
