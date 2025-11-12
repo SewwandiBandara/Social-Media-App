@@ -83,22 +83,13 @@ router.get('/public', async (req, res) => {
   }
 });
 
-// Get user's feed (posts from followed users and own posts)
+// Get user's feed (all posts from all users)
 router.get('/feed', requireAuth, async (req, res) => {
   try {
     const userId = req.session.userId;
 
-    // Get user's followed users
-    const user = await User.findById(userId).select('following');
-    const followedUsers = user.following || [];
-
-    // Get posts from followed users and own posts
-    const posts = await Post.find({
-      $or: [
-        { author: { $in: followedUsers } },
-        { author: userId }
-      ]
-    })
+    // Get all posts from all users
+    const posts = await Post.find({})
       .populate('author', 'name username email')
       .sort({ createdAt: -1 })
       .limit(50);
