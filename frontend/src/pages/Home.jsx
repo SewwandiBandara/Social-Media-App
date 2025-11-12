@@ -2,6 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { postsAPI } from '../services/api';
 
+const EMOJI_REACTIONS = [
+  { emoji: '👍', label: 'Like', id: 'like' },
+  { emoji: '❤️', label: 'Love', id: 'love' },
+  { emoji: '😂', label: 'Haha', id: 'haha' },
+  { emoji: '😮', label: 'Wow', id: 'wow' },
+  { emoji: '😢', label: 'Sad', id: 'sad' },
+  { emoji: '🔥', label: 'Fire', id: 'fire' }
+];
+
 const Home = () => {
   const { user } = useAuth();
   const [posts, setPosts] = useState([]);
@@ -9,6 +18,11 @@ const Home = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [selectedPostForComments, setSelectedPostForComments] = useState(null);
+  const [commentText, setCommentText] = useState('');
+  const [commentingPostId, setCommentingPostId] = useState(null);
+  const [loadingComments, setLoadingComments] = useState(false);
+  const [postReactions, setPostReactions] = useState({});
 
   // Fetch posts on component mount
   useEffect(() => {
@@ -74,6 +88,82 @@ const Home = () => {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleAddComment = async () => {
+    if (!commentText.trim() || !commentingPostId) return;
+
+    try {
+      setLoadingComments(true);
+      await postsAPI.addComment(commentingPostId, commentText);
+
+      // Update the selected post and posts list
+      const updatedPosts = posts.map(post => {
+        if (post._id === commentingPostId) {
+          return {
+            ...post,
+            commentsCount: (post.commentsCount || 0) + 1,
+            comments: [
+              ...(post.comments || []),
+              {
+                author: user,
+                content: commentText,
+                createdAt: new Date().toISOString()
+              }
+            ]
+          };
+        }
+        return post;
+      });
+      setPosts(updatedPosts);
+
+      // Update selected post if it's open
+      if (selectedPostForComments && selectedPostForComments._id === commentingPostId) {
+        setSelectedPostForComments({
+          ...selectedPostForComments,
+          commentsCount: (selectedPostForComments.commentsCount || 0) + 1,
+          comments: [
+            ...(selectedPostForComments.comments || []),
+            {
+              author: user,
+              content: commentText,
+              createdAt: new Date().toISOString()
+            }
+          ]
+        });
+      }
+
+      setCommentText('');
+    } catch (err) {
+      console.error('Error adding comment:', err);
+      alert('Failed to add comment. Please try again.');
+    } finally {
+      setLoadingComments(false);
+    }
+  };
+
+  const openComments = (post) => {
+    setSelectedPostForComments(post);
+    setCommentingPostId(post._id);
+  };
+
+  const closeComments = () => {
+    setSelectedPostForComments(null);
+    setCommentingPostId(null);
+    setCommentText('');
+  };
+
+  const toggleReaction = (postId, reactionId) => {
+    const key = `${postId}-${reactionId}`;
+    setPostReactions(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
+
+  const hasReaction = (postId, reactionId) => {
+    const key = `${postId}-${reactionId}`;
+    return postReactions[key] || false;
   };
 
   return (
@@ -246,6 +336,26 @@ const Home = () => {
                     </div>
                   </div>
 
+                  {/* Emoji Reactions */}
+                  <div className="px-4 py-2 bg-gray-50 border-t border-gray-100">
+                    <div className="flex items-center justify-start space-x-1 overflow-x-auto pb-2">
+                      {EMOJI_REACTIONS.map((reaction) => (
+                        <button
+                          key={reaction.id}
+                          onClick={() => toggleReaction(post._id, reaction.id)}
+                          title={reaction.label}
+                          className={`px-3 py-1 rounded-full text-lg transition-all ${
+                            hasReaction(post._id, reaction.id)
+                              ? 'bg-blue-100 scale-110'
+                              : 'hover:bg-gray-200'
+                          }`}
+                        >
+                          {reaction.emoji}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
                   {/* Post Actions */}
                   <div className="px-4 py-2 flex items-center justify-around">
                     <button
@@ -259,7 +369,10 @@ const Home = () => {
                       </svg>
                       <span className="font-medium">Like</span>
                     </button>
-                    <button className="flex items-center space-x-2 px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors">
+                    <button
+                      onClick={() => openComments(post)}
+                      className="flex items-center space-x-2 px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
+                    >
                       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                       </svg>
@@ -323,6 +436,87 @@ const Home = () => {
           </div>
         </div>
       </div>
+
+      {/* Comments Modal */}
+      {selectedPostForComments && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-96 overflow-hidden flex flex-col">
+            {/* Modal Header */}
+            <div className="bg-gray-50 px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-800">Comments</h3>
+              <button
+                onClick={closeComments}
+                className="text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Comments List */}
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+              {selectedPostForComments.comments && selectedPostForComments.comments.length > 0 ? (
+                selectedPostForComments.comments.map((comment, idx) => (
+                  <div key={idx} className="flex space-x-3">
+                    <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
+                      <span className="text-white font-semibold text-sm">
+                        {comment.author?.name?.charAt(0)?.toUpperCase() || 'U'}
+                      </span>
+                    </div>
+                    <div className="flex-1">
+                      <div className="bg-gray-100 rounded-lg px-3 py-2">
+                        <p className="font-medium text-gray-800 text-sm">
+                          {comment.author?.name || 'Unknown User'}
+                        </p>
+                        <p className="text-gray-700 text-sm">{comment.content}</p>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {new Date(comment.createdAt).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-center text-gray-500 py-4">No comments yet. Be the first to comment!</p>
+              )}
+            </div>
+
+            {/* Comment Input */}
+            <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
+              <div className="flex items-end space-x-2">
+                <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center flex-shrink-0">
+                  <span className="text-white font-semibold text-xs">
+                    {user ? user.name.charAt(0).toUpperCase() : 'U'}
+                  </span>
+                </div>
+                <div className="flex-1 flex space-x-2">
+                  <input
+                    type="text"
+                    placeholder="Write a comment..."
+                    value={commentText}
+                    onChange={(e) => setCommentText(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleAddComment();
+                      }
+                    }}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  />
+                  <button
+                    onClick={handleAddComment}
+                    disabled={!commentText.trim() || loadingComments}
+                    className="px-4 py-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+                  >
+                    {loadingComments ? '...' : 'Post'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
