@@ -107,6 +107,14 @@ export const postsAPI = {
     method: 'POST',
     body: JSON.stringify({ content }),
   }),
+
+  sharePost: (postId) => apiCall(`/posts/${postId}/share`, {
+    method: 'POST',
+  }),
+
+  unsharePost: (postId) => apiCall(`/posts/${postId}/share`, {
+    method: 'DELETE',
+  }),
 };
 
 export default {

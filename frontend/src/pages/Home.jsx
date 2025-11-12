@@ -1,88 +1,76 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { postsAPI } from '../services/api';
+
+const EMOJI_REACTIONS = [
+  { emoji: '👍', label: 'Like', id: 'like' },
+  { emoji: '❤️', label: 'Love', id: 'love' },
+  { emoji: '😂', label: 'Haha', id: 'haha' },
+  { emoji: '😮', label: 'Wow', id: 'wow' },
+  { emoji: '😢', label: 'Sad', id: 'sad' },
+  { emoji: '🔥', label: 'Fire', id: 'fire' }
+];
 
 const Home = () => {
   const { user } = useAuth();
   const [posts, setPosts] = useState([]);
   const [postContent, setPostContent] = useState('');
-  const [selectedImage, setSelectedImage] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
-  const [feeling, setFeeling] = useState('');
-  const [activity, setActivity] = useState('');
-  const [location, setLocation] = useState('');
-  const [showFeelings, setShowFeelings] = useState(false);
-  const [showActivities, setShowActivities] = useState(false);
-  const fileInputRef = useRef(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [selectedPostForComments, setSelectedPostForComments] = useState(null);
+  const [commentText, setCommentText] = useState('');
+  const [commentingPostId, setCommentingPostId] = useState(null);
+  const [loadingComments, setLoadingComments] = useState(false);
+  const [postReactions, setPostReactions] = useState({});
+  const [shareModal, setShareModal] = useState(null);
+  const [sharingPostId, setSharingPostId] = useState(null);
+  const [sharedPosts, setSharedPosts] = useState({});
 
-  const feelings = [
-    '😊 happy', '😢 sad', '😍 loved', '😎 cool', '😴 tired',
-    '😋 hungry', '🤔 thoughtful', '🎉 celebrating', '😌 blessed', '💪 motivated'
-  ];
-
-  const activities = [
-    '🍕 eating', '🎮 playing', '📺 watching', '📚 reading', '🏃 exercising',
-    '✈️ traveling', '🎵 listening to music', '💼 working', '🎨 creating', '🛌 relaxing'
-  ];
-
-  // Fetch user's feed on component mount
+  // Fetch posts on component mount
   useEffect(() => {
-    const fetchUserFeed = async () => {
-      try {
-        const response = await fetch('http://localhost:5000/api/posts/feed', {
-          credentials: 'include'
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          if (data.posts && data.posts.length > 0) {
-            setPosts(data.posts);
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching feed:', error);
-      }
-    };
-
-    fetchUserFeed();
+    fetchPosts();
   }, []);
 
-  const handleImageSelect = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setSelectedImage(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleRemoveImage = () => {
-    setSelectedImage(null);
-    setImagePreview(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+  const fetchPosts = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      const data = await postsAPI.getAllPosts(1, 20);
+      setPosts(data.posts || []);
+    } catch (err) {
+      console.error('Error fetching posts:', err);
+      setError('Failed to load posts. Please try again.');
+      setPosts([]);
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleLike = async (postId) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/posts/${postId}/like`, {
-        method: 'POST',
-        credentials: 'include'
-      });
+      const post = posts.find(p => p._id === postId);
+      if (!post) return;
 
-      if (response.ok) {
-        const data = await response.json();
-        setPosts(posts.map(post =>
-          post.id === postId
-            ? { ...post, liked: data.liked, likes: data.likes }
-            : post
-        ));
+      if (post.isLikedByUser) {
+        await postsAPI.unlikePost(postId);
+      } else {
+        await postsAPI.likePost(postId);
       }
-    } catch (error) {
-      console.error('Error liking post:', error);
+
+      // Update local state
+      setPosts(posts.map(p =>
+        p._id === postId
+          ? {
+              ...p,
+              isLikedByUser: !p.isLikedByUser,
+              likesCount: p.isLikedByUser ? p.likesCount - 1 : p.likesCount + 1
+            }
+          : p
+      ));
+    } catch (err) {
+      console.error('Error toggling like:', err);
+      alert('Failed to update like status');
     }
   };
 
@@ -90,62 +78,137 @@ const Home = () => {
     if (!postContent.trim()) return;
 
     try {
-      const formData = new FormData();
-      formData.append('content', postContent);
+      setSubmitting(true);
+      const newPostData = { content: postContent };
+      const response = await postsAPI.createPost(newPostData);
 
-      if (selectedImage) {
-        formData.append('image', selectedImage);
-      }
-
-      if (feeling) {
-        formData.append('feeling', feeling);
-      }
-
-      if (activity) {
-        formData.append('activity', activity);
-      }
-
-      if (location) {
-        formData.append('locationName', location);
-      }
-
-      const response = await fetch('http://localhost:5000/api/posts/create', {
-        method: 'POST',
-        credentials: 'include',
-        body: formData
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const newPost = {
-          id: data.post?.id || posts.length + 1,
-          author: user?.name || 'You',
-          username: user?.username || '@you',
-          avatar: user?.name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U',
-          time: 'Just now',
-          content: postContent,
-          image: data.post?.image ? `http://localhost:5000${data.post.image}` : null,
-          feeling: feeling,
-          activity: activity,
-          location: location ? { name: location } : null,
-          likes: 0,
-          comments: 0,
-          shares: 0,
-          liked: false
-        };
-        setPosts([newPost, ...posts]);
-
-        // Reset form
-        setPostContent('');
-        setSelectedImage(null);
-        setImagePreview(null);
-        setFeeling('');
-        setActivity('');
-        setLocation('');
-      }
-    } catch (error) {
-      console.error('Error creating post:', error);
+      // Add the new post to the top of the feed
+      setPosts([response.post, ...posts]);
+      setPostContent('');
+    } catch (err) {
+      console.error('Error creating post:', err);
+      alert('Failed to create post. Please try again.');
+    } finally {
+      setSubmitting(false);
     }
+  };
+
+  const handleAddComment = async () => {
+    if (!commentText.trim() || !commentingPostId) return;
+
+    try {
+      setLoadingComments(true);
+      await postsAPI.addComment(commentingPostId, commentText);
+
+      // Update the selected post and posts list
+      const updatedPosts = posts.map(post => {
+        if (post._id === commentingPostId) {
+          return {
+            ...post,
+            commentsCount: (post.commentsCount || 0) + 1,
+            comments: [
+              ...(post.comments || []),
+              {
+                author: user,
+                content: commentText,
+                createdAt: new Date().toISOString()
+              }
+            ]
+          };
+        }
+        return post;
+      });
+      setPosts(updatedPosts);
+
+      // Update selected post if it's open
+      if (selectedPostForComments && selectedPostForComments._id === commentingPostId) {
+        setSelectedPostForComments({
+          ...selectedPostForComments,
+          commentsCount: (selectedPostForComments.commentsCount || 0) + 1,
+          comments: [
+            ...(selectedPostForComments.comments || []),
+            {
+              author: user,
+              content: commentText,
+              createdAt: new Date().toISOString()
+            }
+          ]
+        });
+      }
+
+      setCommentText('');
+    } catch (err) {
+      console.error('Error adding comment:', err);
+      alert('Failed to add comment. Please try again.');
+    } finally {
+      setLoadingComments(false);
+    }
+  };
+
+  const openComments = (post) => {
+    setSelectedPostForComments(post);
+    setCommentingPostId(post._id);
+  };
+
+  const closeComments = () => {
+    setSelectedPostForComments(null);
+    setCommentingPostId(null);
+    setCommentText('');
+  };
+
+  const toggleReaction = (postId, reactionId) => {
+    const key = `${postId}-${reactionId}`;
+    setPostReactions(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
+
+  const hasReaction = (postId, reactionId) => {
+    const key = `${postId}-${reactionId}`;
+    return postReactions[key] || false;
+  };
+
+  const handleShare = async (postId, shareType = 'feed') => {
+    try {
+      setSharingPostId(postId);
+      await postsAPI.sharePost(postId);
+
+      // Update shared posts state
+      setSharedPosts(prev => ({
+        ...prev,
+        [postId]: true
+      }));
+
+      // Update post shares count
+      const updatedPosts = posts.map(post => {
+        if (post._id === postId) {
+          return {
+            ...post,
+            sharesCount: (post.sharesCount || 0) + 1
+          };
+        }
+        return post;
+      });
+      setPosts(updatedPosts);
+
+      // Close modal and show success
+      setShareModal(null);
+      alert(`Post shared to ${shareType === 'feed' ? 'your feed' : shareType}!`);
+    } catch (err) {
+      console.error('Error sharing post:', err);
+      alert(err.message || 'Failed to share post. You may have already shared it.');
+    } finally {
+      setSharingPostId(null);
+    }
+  };
+
+  const openShareModal = (post) => {
+    setShareModal(post);
+  };
+
+  const closeShareModal = () => {
+    setShareModal(null);
   };
 
   return (
@@ -160,26 +223,38 @@ const Home = () => {
               <div className="text-center">
                 <div className="w-20 h-20 mx-auto bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
                   <span className="text-white font-bold text-2xl">
-                    {user?.name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U'}
+                    {user ? user.name.charAt(0).toUpperCase() : 'U'}
                   </span>
                 </div>
-                <h3 className="mt-4 font-semibold text-gray-800">{user?.name || 'Your Profile'}</h3>
-                <p className="text-sm text-gray-500">{user?.username || '@username'}</p>
+                <h3 className="mt-4 font-semibold text-gray-800">
+                  {user ? user.name : 'Your Profile'}
+                </h3>
+                <p className="text-sm text-gray-500">
+                  {user ? `@${user.username}` : '@username'}
+                </p>
               </div>
-              <div className="mt-6 space-y-3">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Followers</span>
-                  <span className="font-semibold text-gray-800">{user?.followers || 0}</span>
+              {user && (
+                <div className="mt-6 space-y-3">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Followers</span>
+                    <span className="font-semibold text-gray-800">
+                      {user.followersCount || 0}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Following</span>
+                    <span className="font-semibold text-gray-800">
+                      {user.followingCount || 0}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Posts</span>
+                    <span className="font-semibold text-gray-800">
+                      {user.postsCount || 0}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Following</span>
-                  <span className="font-semibold text-gray-800">{user?.following || 0}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Posts</span>
-                  <span className="font-semibold text-gray-800">{user?.posts || 0}</span>
-                </div>
-              </div>
+              )}
             </div>
           </div>
 
@@ -190,7 +265,7 @@ const Home = () => {
               <div className="flex items-start space-x-4">
                 <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center flex-shrink-0">
                   <span className="text-white font-semibold">
-                    {user?.name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U'}
+                    {user ? user.name.charAt(0).toUpperCase() : 'U'}
                   </span>
                 </div>
                 <div className="flex-1">
@@ -200,6 +275,7 @@ const Home = () => {
                     onChange={(e) => setPostContent(e.target.value)}
                     className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                     rows="3"
+                    disabled={submitting}
                   />
 
                   {/* Selected Tags Display */}
@@ -243,97 +319,17 @@ const Home = () => {
 
                   <div className="flex items-center justify-between mt-3">
                     <div className="flex space-x-2">
-                      {/* Image Upload Button */}
-                      <button
-                        onClick={() => fileInputRef.current?.click()}
-                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                        title="Add photo"
-                      >
+                      <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors" disabled={submitting}>
                         <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
                       </button>
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*"
-                        onChange={handleImageSelect}
-                        className="hidden"
-                      />
-
-                      {/* Feeling Button */}
-                      <div className="relative">
-                        <button
-                          onClick={() => {
-                            setShowFeelings(!showFeelings);
-                            setShowActivities(false);
-                          }}
-                          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                          title="Add feeling"
-                        >
-                          <svg className="w-6 h-6 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                        </button>
-                        {showFeelings && (
-                          <div className="absolute z-10 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 p-2 max-h-60 overflow-y-auto">
-                            {feelings.map((f, idx) => (
-                              <button
-                                key={idx}
-                                onClick={() => {
-                                  setFeeling(f);
-                                  setShowFeelings(false);
-                                }}
-                                className="w-full text-left px-3 py-2 hover:bg-gray-100 rounded-lg text-sm"
-                              >
-                                {f}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Activity Button */}
-                      <div className="relative">
-                        <button
-                          onClick={() => {
-                            setShowActivities(!showActivities);
-                            setShowFeelings(false);
-                          }}
-                          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                          title="Add activity"
-                        >
-                          <svg className="w-6 h-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                          </svg>
-                        </button>
-                        {showActivities && (
-                          <div className="absolute z-10 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 p-2 max-h-60 overflow-y-auto">
-                            {activities.map((a, idx) => (
-                              <button
-                                key={idx}
-                                onClick={() => {
-                                  setActivity(a);
-                                  setShowActivities(false);
-                                }}
-                                className="w-full text-left px-3 py-2 hover:bg-gray-100 rounded-lg text-sm"
-                              >
-                                {a}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Location Input */}
-                      <button
-                        onClick={() => {
-                          const loc = prompt('Enter location:');
-                          if (loc) setLocation(loc);
-                        }}
-                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                        title="Add location"
-                      >
+                      <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors" disabled={submitting}>
+                        <svg className="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </button>
+                      <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors" disabled={submitting}>
                         <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -343,43 +339,58 @@ const Home = () => {
                     <button
                       onClick={handleCreatePost}
                       className="px-6 py-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                      disabled={!postContent.trim()}
+                      disabled={!postContent.trim() || submitting}
                     >
-                      Post
+                      {submitting ? 'Posting...' : 'Post'}
                     </button>
                   </div>
                 </div>
               </div>
             </div>
 
+            {/* Loading State */}
+            {loading && (
+              <div className="bg-white rounded-lg shadow-sm p-8 text-center">
+                <p className="text-gray-500">Loading posts...</p>
+              </div>
+            )}
+
+            {/* Error State */}
+            {error && (
+              <div className="bg-red-50 rounded-lg shadow-sm p-4 border border-red-200">
+                <p className="text-red-600">{error}</p>
+                <button
+                  onClick={fetchPosts}
+                  className="mt-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors text-sm"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+
             {/* Posts Feed */}
-            {posts.length === 0 ? (
-              <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-                <svg className="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
-                </svg>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">No posts yet</h3>
-                <p className="text-gray-500">Create your first post or follow some users to see their posts here!</p>
+            {!loading && posts.length === 0 ? (
+              <div className="bg-white rounded-lg shadow-sm p-8 text-center">
+                <p className="text-gray-500">No posts yet. Be the first to share something!</p>
               </div>
             ) : (
               posts.map((post) => (
-                <div key={post.id} className="bg-white rounded-lg shadow-sm overflow-hidden">
+                <div key={post._id} className="bg-white rounded-lg shadow-sm overflow-hidden">
                   {/* Post Header */}
                   <div className="p-4 flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                       <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                        <span className="text-white font-semibold">{post.avatar}</span>
+                        <span className="text-white font-semibold">
+                          {post.author?.name?.charAt(0)?.toUpperCase() || 'U'}
+                        </span>
                       </div>
                       <div>
-                        <h3 className="font-semibold text-gray-800">{post.author}</h3>
-                        <div className="flex items-center text-sm text-gray-500 space-x-1">
-                          <span>{post.username}</span>
-                          <span>·</span>
-                          <span>{post.time}</span>
-                          {post.feeling && <span>· feeling {post.feeling}</span>}
-                          {post.activity && <span>· {post.activity}</span>}
-                          {post.location?.name && <span>· at {post.location.name}</span>}
-                        </div>
+                        <h3 className="font-semibold text-gray-800">
+                          {post.author?.name || 'Unknown User'}
+                        </h3>
+                        <p className="text-sm text-gray-500">
+                          @{post.author?.username || 'unknown'} · {post.getTimeAgo?.() || 'recently'}
+                        </p>
                       </div>
                     </div>
                     <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
@@ -395,42 +406,70 @@ const Home = () => {
                   </div>
 
                   {/* Post Image */}
-                  {post.image && (
+                  {post.images && post.images.length > 0 && (
                     <div className="w-full">
-                      <img src={post.image} alt="Post content" className="w-full h-auto object-cover" />
+                      <img src={post.images[0].url} alt={post.images[0].alt || 'Post content'} className="w-full h-auto object-cover" />
                     </div>
                   )}
 
                   {/* Post Stats */}
                   <div className="px-4 py-2 flex items-center justify-between text-sm text-gray-500 border-b border-gray-100">
-                    <span>{post.likes} likes</span>
+                    <span>{post.likesCount || 0} likes</span>
                     <div className="flex space-x-4">
-                      <span>{post.comments} comments</span>
-                      <span>{post.shares} shares</span>
+                      <span>{post.commentsCount || 0} comments</span>
+                      <span>{post.sharesCount || 0} shares</span>
+                    </div>
+                  </div>
+
+                  {/* Emoji Reactions */}
+                  <div className="px-4 py-2 bg-gray-50 border-t border-gray-100">
+                    <div className="flex items-center justify-start space-x-1 overflow-x-auto pb-2">
+                      {EMOJI_REACTIONS.map((reaction) => (
+                        <button
+                          key={reaction.id}
+                          onClick={() => toggleReaction(post._id, reaction.id)}
+                          title={reaction.label}
+                          className={`px-3 py-1 rounded-full text-lg transition-all ${
+                            hasReaction(post._id, reaction.id)
+                              ? 'bg-blue-100 scale-110'
+                              : 'hover:bg-gray-200'
+                          }`}
+                        >
+                          {reaction.emoji}
+                        </button>
+                      ))}
                     </div>
                   </div>
 
                   {/* Post Actions */}
                   <div className="px-4 py-2 flex items-center justify-around">
                     <button
-                      onClick={() => handleLike(post.id)}
+                      onClick={() => handleLike(post._id)}
                       className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
-                        post.liked ? 'text-red-500' : 'text-gray-600 hover:bg-gray-100'
+                        post.isLikedByUser ? 'text-red-500' : 'text-gray-600 hover:bg-gray-100'
                       }`}
                     >
-                      <svg className="w-6 h-6" fill={post.liked ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-6 h-6" fill={post.isLikedByUser ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                       </svg>
                       <span className="font-medium">Like</span>
                     </button>
-                    <button className="flex items-center space-x-2 px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors">
+                    <button
+                      onClick={() => openComments(post)}
+                      className="flex items-center space-x-2 px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
+                    >
                       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                       </svg>
                       <span className="font-medium">Comment</span>
                     </button>
-                    <button className="flex items-center space-x-2 px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors">
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <button
+                      onClick={() => openShareModal(post)}
+                      className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+                        sharedPosts[post._id] ? 'text-green-600' : 'text-gray-600 hover:bg-gray-100'
+                      }`}
+                    >
+                      <svg className="w-6 h-6" fill={sharedPosts[post._id] ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                       </svg>
                       <span className="font-medium">Share</span>
@@ -487,6 +526,165 @@ const Home = () => {
           </div>
         </div>
       </div>
+
+      {/* Share Modal */}
+      {shareModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-sm w-full">
+            {/* Modal Header */}
+            <div className="bg-gray-50 px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-800">Share Post</h3>
+              <button
+                onClick={closeShareModal}
+                className="text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Share Options */}
+            <div className="p-6 space-y-3">
+              <button
+                onClick={() => handleShare(shareModal._id, 'your feed')}
+                disabled={sharingPostId === shareModal._id}
+                className="w-full flex items-center space-x-4 p-4 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                </div>
+                <div className="text-left">
+                  <p className="font-semibold text-gray-800">Share to Your Feed</p>
+                  <p className="text-sm text-gray-500">Post this to your profile</p>
+                </div>
+              </button>
+
+              <button
+                onClick={() => handleShare(shareModal._id, 'message')}
+                disabled={sharingPostId === shareModal._id}
+                className="w-full flex items-center space-x-4 p-4 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                </div>
+                <div className="text-left">
+                  <p className="font-semibold text-gray-800">Send via Message</p>
+                  <p className="text-sm text-gray-500">Share in a direct message</p>
+                </div>
+              </button>
+
+              <button
+                onClick={() => handleShare(shareModal._id, 'story')}
+                disabled={sharingPostId === shareModal._id}
+                className="w-full flex items-center space-x-4 p-4 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+                  <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4v.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div className="text-left">
+                  <p className="font-semibold text-gray-800">Share to Story</p>
+                  <p className="text-sm text-gray-500">Post to your story</p>
+                </div>
+              </button>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="bg-gray-50 px-6 py-3 border-t border-gray-200">
+              <p className="text-xs text-gray-500 text-center">
+                {sharedPosts[shareModal._id] ? '✓ You have already shared this post' : 'Choose where to share this post'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Comments Modal */}
+      {selectedPostForComments && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-96 overflow-hidden flex flex-col">
+            {/* Modal Header */}
+            <div className="bg-gray-50 px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-800">Comments</h3>
+              <button
+                onClick={closeComments}
+                className="text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Comments List */}
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+              {selectedPostForComments.comments && selectedPostForComments.comments.length > 0 ? (
+                selectedPostForComments.comments.map((comment, idx) => (
+                  <div key={idx} className="flex space-x-3">
+                    <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
+                      <span className="text-white font-semibold text-sm">
+                        {comment.author?.name?.charAt(0)?.toUpperCase() || 'U'}
+                      </span>
+                    </div>
+                    <div className="flex-1">
+                      <div className="bg-gray-100 rounded-lg px-3 py-2">
+                        <p className="font-medium text-gray-800 text-sm">
+                          {comment.author?.name || 'Unknown User'}
+                        </p>
+                        <p className="text-gray-700 text-sm">{comment.content}</p>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {new Date(comment.createdAt).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-center text-gray-500 py-4">No comments yet. Be the first to comment!</p>
+              )}
+            </div>
+
+            {/* Comment Input */}
+            <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
+              <div className="flex items-end space-x-2">
+                <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center flex-shrink-0">
+                  <span className="text-white font-semibold text-xs">
+                    {user ? user.name.charAt(0).toUpperCase() : 'U'}
+                  </span>
+                </div>
+                <div className="flex-1 flex space-x-2">
+                  <input
+                    type="text"
+                    placeholder="Write a comment..."
+                    value={commentText}
+                    onChange={(e) => setCommentText(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleAddComment();
+                      }
+                    }}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  />
+                  <button
+                    onClick={handleAddComment}
+                    disabled={!commentText.trim() || loadingComments}
+                    className="px-4 py-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+                  >
+                    {loadingComments ? '...' : 'Post'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
