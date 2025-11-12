@@ -277,6 +277,46 @@ const Home = () => {
                     rows="3"
                     disabled={submitting}
                   />
+
+                  {/* Selected Tags Display */}
+                  {(feeling || activity || location) && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {feeling && (
+                        <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm flex items-center gap-1">
+                          feeling {feeling}
+                          <button onClick={() => setFeeling('')} className="ml-1 hover:text-yellow-900">×</button>
+                        </span>
+                      )}
+                      {activity && (
+                        <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm flex items-center gap-1">
+                          {activity}
+                          <button onClick={() => setActivity('')} className="ml-1 hover:text-green-900">×</button>
+                        </span>
+                      )}
+                      {location && (
+                        <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm flex items-center gap-1">
+                          📍 {location}
+                          <button onClick={() => setLocation('')} className="ml-1 hover:text-blue-900">×</button>
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Image Preview */}
+                  {imagePreview && (
+                    <div className="mt-3 relative">
+                      <img src={imagePreview} alt="Preview" className="w-full rounded-lg max-h-64 object-cover" />
+                      <button
+                        onClick={handleRemoveImage}
+                        className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-2 hover:bg-red-600"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  )}
+
                   <div className="flex items-center justify-between mt-3">
                     <div className="flex space-x-2">
                       <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors" disabled={submitting}>
@@ -464,15 +504,15 @@ const Home = () => {
                     { name: 'Alex Smith', username: '@alexs', avatar: 'AS' },
                     { name: 'Lisa Brown', username: '@lisab', avatar: 'LB' },
                     { name: 'Tom Davis', username: '@tomd', avatar: 'TD' }
-                  ].map((user, index) => (
+                  ].map((suggestedUser, index) => (
                     <div key={index} className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
                         <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-teal-500 rounded-full flex items-center justify-center">
-                          <span className="text-white font-semibold text-sm">{user.avatar}</span>
+                          <span className="text-white font-semibold text-sm">{suggestedUser.avatar}</span>
                         </div>
                         <div>
-                          <p className="font-medium text-gray-800 text-sm">{user.name}</p>
-                          <p className="text-xs text-gray-500">{user.username}</p>
+                          <p className="font-medium text-gray-800 text-sm">{suggestedUser.name}</p>
+                          <p className="text-xs text-gray-500">{suggestedUser.username}</p>
                         </div>
                       </div>
                       <button className="px-4 py-1 bg-blue-500 text-white rounded-full text-sm hover:bg-blue-600 transition-colors">

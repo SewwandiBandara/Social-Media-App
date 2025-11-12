@@ -48,9 +48,9 @@ router.post('/register', async (req, res) => {
       location: user.location,
       website: user.website,
       avatar: user.avatar,
-      followers: user.followersCount,
-      following: user.followingCount,
-      posts: user.postsCount,
+      followers: user.followers.length,
+      following: user.following.length,
+      posts: user.postsCount || 0,
       joined: user.getJoinedDate()
     };
 
@@ -101,9 +101,9 @@ router.post('/login', async (req, res) => {
       location: user.location,
       website: user.website,
       avatar: user.avatar,
-      followers: user.followersCount,
-      following: user.followingCount,
-      posts: user.postsCount,
+      followers: user.followers.length,
+      following: user.following.length,
+      posts: user.postsCount || 0,
       joined: user.getJoinedDate()
     };
 
@@ -153,9 +153,9 @@ router.get('/check', async (req, res) => {
       location: user.location,
       website: user.website,
       avatar: user.avatar,
-      followers: user.followersCount,
-      following: user.followingCount,
-      posts: user.postsCount,
+      followers: user.followers.length,
+      following: user.following.length,
+      posts: user.postsCount || 0,
       joined: user.getJoinedDate()
     };
 

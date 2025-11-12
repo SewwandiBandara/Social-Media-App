@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import Navbar from "./components/Navbar";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Home from "./pages/Home";
+import PublicHome from "./pages/PublicHome";
 import Messages from "./pages/Messages";
 import Notifications from "./pages/Notifications";
 import Settings from "./pages/Settings";
@@ -30,19 +31,35 @@ function AppContent() {
     <>
       {isAuthenticated && <Navbar />}
       <Routes>
-        {/* Public routes - redirect to home if authenticated */}
+        {/* Root path redirects based on authentication */}
+        <Route
+          path="/"
+          element={isAuthenticated ? <Navigate to="/home" replace /> : <Navigate to="/publichome" replace />}
+        />
+        
+        {/* Public routes */}
+        <Route
+          path="/publichome"
+          element={isAuthenticated ? <Navigate to="/home" replace /> : <PublicHome />}
+        />
+
+        {/* Public routes */}
+        {/* <Route
+          path="/publichome"
+          element={<PublicHome />}
+        /> */}
         <Route
           path="/login"
-          element={isAuthenticated ? <Navigate to="/" replace /> : <Login />}
+          element={isAuthenticated ? <Navigate to="/home" replace /> : <Login />}
         />
         <Route
           path="/register"
-          element={isAuthenticated ? <Navigate to="/" replace /> : <Register />}
+          element={isAuthenticated ? <Navigate to="/home" replace /> : <Register />}
         />
 
         {/* Protected routes - require authentication */}
         <Route
-          path="/"
+          path="/home"
           element={
             <ProtectedRoute>
               <Home />

@@ -17,10 +17,17 @@ const Navbar = () => {
     console.log('Searching for:', searchQuery);
   };
 
+  // const handleLogout = async () => {
+  //   await logout();
+  //   navigate('/publichome', { replace: true });
+  // };
+
   const handleLogout = async () => {
-    await logout();
-    navigate('/login');
-  };
+  setIsProfileMenuOpen(false);
+  setIsMenuOpen(false);
+  await logout();
+  navigate('/publichome', { replace: true });
+};
 
   return (
     <nav className="bg-white shadow-md sticky top-0 z-50 border-b border-gray-200">
@@ -72,15 +79,15 @@ const Navbar = () => {
           <div className="hidden md:flex items-center space-x-1">
             {/* Home */}
             <Link
-              to="/"
+              to="/home"
               className={`p-3 rounded-lg hover:bg-gray-100 transition-colors relative group ${
-                isActive('/') ? 'text-purple-600' : 'text-gray-600'
+                isActive('/home') ? 'text-purple-600' : 'text-gray-600'
               }`}
               title="Home"
             >
               <svg
                 className="h-6 w-6"
-                fill={isActive('/') ? 'currentColor' : 'none'}
+                fill={isActive('/home') ? 'currentColor' : 'none'}
                 stroke="currentColor"
                 viewBox="0 0 24 24"
               >
@@ -237,7 +244,10 @@ const Navbar = () => {
                     </div>
                   </Link>
                   <div className="border-t border-gray-200 mt-1 pt-1">
-                    <button className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 transition-colors">
+                    <button
+                      onClick={handleLogout}
+                      className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 transition-colors"
+                    >
                       <div className="flex items-center space-x-2">
                         <svg
                           className="h-5 w-5"
@@ -330,9 +340,9 @@ const Navbar = () => {
           {/* Mobile Navigation Links */}
           <div className="px-2 py-3 space-y-1">
             <Link
-              to="/"
+              to="/home"
               className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
-                isActive('/') ? 'bg-purple-50 text-purple-600' : 'text-gray-600 hover:bg-gray-100'
+                isActive('/home') ? 'bg-purple-50 text-purple-600' : 'text-gray-600 hover:bg-gray-100'
               }`}
             >
               <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

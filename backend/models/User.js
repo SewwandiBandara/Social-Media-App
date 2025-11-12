@@ -57,6 +57,10 @@ const userSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Post'
   }],
+  postsCount: {
+    type: Number,
+    default: 0
+  },
   createdAt: {
     type: Date,
     default: Date.now
@@ -73,11 +77,6 @@ userSchema.virtual('followersCount').get(function() {
 // Virtual for following count
 userSchema.virtual('followingCount').get(function() {
   return this.following.length;
-});
-
-// Virtual for posts count
-userSchema.virtual('postsCount').get(function() {
-  return this.posts.length;
 });
 
 // Method to get formatted joined date
