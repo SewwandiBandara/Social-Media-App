@@ -36,38 +36,6 @@ router.get('/', isAuthenticated, async (req, res) => {
   }
 });
 
-// @route   GET /api/profile/:username
-// @desc    Get user profile by username
-// @access  Public
-router.get('/:username', async (req, res) => {
-  try {
-    const user = await User.findOne({ username: req.params.username.toLowerCase() }).select('-password');
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    const userResponse = {
-      id: user._id,
-      name: user.name,
-      username: user.username,
-      email: user.email,
-      bio: user.bio,
-      location: user.location,
-      website: user.website,
-      avatar: user.avatar,
-      followers: user.followersCount,
-      following: user.followingCount,
-      posts: user.postsCount,
-      joined: user.getJoinedDate()
-    };
-
-    res.json({ user: userResponse });
-  } catch (error) {
-    console.error('Profile fetch error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
 // @route   PUT /api/profile/update
 // @desc    Update user profile
 // @access  Private
@@ -269,6 +237,188 @@ router.get('/:userId/stats', async (req, res) => {
     });
   } catch (error) {
     console.error('Fetch stats error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   GET /api/profile/:userId/posts
+// @desc    Get user's posts
+// @access  Public
+router.get('/:userId/posts', async (req, res) => {
+  try {
+    const Post = require('../models/Post');
+
+    const posts = await Post.find({ author: req.params.userId })
+      .populate('author', 'name username avatar')
+      .sort({ createdAt: -1 })
+      .limit(50);
+
+    const formattedPosts = posts.map(post => {
+      const reactionCounts = post.reactions.reduce((acc, reaction) => {
+        acc[reaction.type] = (acc[reaction.type] || 0) + 1;
+        return acc;
+      }, {});
+
+      return {
+        id: post._id,
+        author: post.author.name,
+        username: post.author.username,
+        avatar: post.author.avatar,
+        content: post.content,
+        image: post.image,
+        images: post.images,
+        feeling: post.feeling,
+        activity: post.activity,
+        location: post.location,
+        likes: post.likes.length,
+        reactions: reactionCounts,
+        totalReactions: post.reactions.length,
+        comments: post.commentsCount || 0,
+        shares: post.shares || 0,
+        createdAt: post.createdAt,
+        time: getTimeAgo(post.createdAt)
+      };
+    });
+
+    res.json({ posts: formattedPosts, count: formattedPosts.length });
+  } catch (error) {
+    console.error('Fetch posts error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   GET /api/profile/:userId/comments
+// @desc    Get user's comments
+// @access  Public
+router.get('/:userId/comments', async (req, res) => {
+  try {
+    const Comment = require('../models/Comment');
+    const Post = require('../models/Post');
+
+    const comments = await Comment.find({ user: req.params.userId })
+      .populate('user', 'name username avatar')
+      .populate('post', 'content author')
+      .sort({ createdAt: -1 })
+      .limit(50);
+
+    const formattedComments = comments.map(comment => {
+      const reactionCounts = comment.reactions.reduce((acc, reaction) => {
+        acc[reaction.type] = (acc[reaction.type] || 0) + 1;
+        return acc;
+      }, {});
+
+      return {
+        id: comment._id,
+        text: comment.text,
+        user: {
+          id: comment.user._id,
+          name: comment.user.name,
+          username: comment.user.username,
+          avatar: comment.user.avatar
+        },
+        post: {
+          id: comment.post._id,
+          content: comment.post.content
+        },
+        reactions: reactionCounts,
+        totalReactions: comment.reactions.length,
+        createdAt: comment.createdAt,
+        time: getTimeAgo(comment.createdAt)
+      };
+    });
+
+    res.json({ comments: formattedComments, count: formattedComments.length });
+  } catch (error) {
+    console.error('Fetch comments error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   GET /api/profile/:userId/media
+// @desc    Get user's media (posts with images)
+// @access  Public
+router.get('/:userId/media', async (req, res) => {
+  try {
+    const Post = require('../models/Post');
+
+    const mediaPosts = await Post.find({
+      author: req.params.userId,
+      $or: [
+        { image: { $exists: true, $ne: null } },
+        { 'images.0': { $exists: true } }
+      ]
+    })
+      .populate('author', 'name username avatar')
+      .sort({ createdAt: -1 })
+      .limit(50);
+
+    const formattedMedia = mediaPosts.map(post => ({
+      id: post._id,
+      image: post.image || (post.images && post.images[0]),
+      images: post.images,
+      content: post.content,
+      createdAt: post.createdAt,
+      likes: post.likes.length,
+      comments: post.commentsCount || 0
+    }));
+
+    res.json({ media: formattedMedia, count: formattedMedia.length });
+  } catch (error) {
+    console.error('Fetch media error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Helper function to get time ago
+function getTimeAgo(date) {
+  const seconds = Math.floor((new Date() - date) / 1000);
+
+  let interval = Math.floor(seconds / 31536000);
+  if (interval >= 1) return interval + 'y ago';
+
+  interval = Math.floor(seconds / 2592000);
+  if (interval >= 1) return interval + 'mo ago';
+
+  interval = Math.floor(seconds / 86400);
+  if (interval >= 1) return interval + 'd ago';
+
+  interval = Math.floor(seconds / 3600);
+  if (interval >= 1) return interval + 'h ago';
+
+  interval = Math.floor(seconds / 60);
+  if (interval >= 1) return interval + 'm ago';
+
+  return 'Just now';
+}
+
+// @route   GET /api/profile/:username
+// @desc    Get user profile by username
+// @access  Public
+router.get('/:username', async (req, res) => {
+  try {
+    const user = await User.findOne({ username: req.params.username.toLowerCase() }).select('-password');
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const userResponse = {
+      id: user._id,
+      name: user.name,
+      username: user.username,
+      email: user.email,
+      bio: user.bio,
+      location: user.location,
+      website: user.website,
+      avatar: user.avatar,
+      followers: user.followersCount,
+      following: user.followingCount,
+      posts: user.postsCount,
+      joined: user.getJoinedDate()
+    };
+
+    res.json({ user: userResponse });
+  } catch (error) {
+    console.error('Profile fetch error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

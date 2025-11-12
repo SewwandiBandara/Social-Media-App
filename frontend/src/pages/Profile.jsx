@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 const Profile = () => {
   const [user, setUser] = useState(null);
@@ -14,13 +14,67 @@ const Profile = () => {
     website: ''
   });
 
-  // Sample posts data (will be replaced with API data)
-  const [posts] = useState([]);
+  const [posts, setPosts] = useState([]);
+  const [comments, setComments] = useState([]);
+  const [media, setMedia] = useState([]);
+  const [tabLoading, setTabLoading] = useState(false);
+
+  const fetchTabData = useCallback(async () => {
+    if (!user || !user.id) return;
+
+    setTabLoading(true);
+    try {
+      let endpoint = '';
+      switch (activeTab) {
+        case 'posts':
+          endpoint = `http://localhost:5000/api/profile/${user.id}/posts`;
+          break;
+        case 'comments':
+          endpoint = `http://localhost:5000/api/profile/${user.id}/comments`;
+          break;
+        case 'media':
+          endpoint = `http://localhost:5000/api/profile/${user.id}/media`;
+          break;
+        default:
+          return;
+      }
+
+      const response = await fetch(endpoint, {
+        credentials: 'include'
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        switch (activeTab) {
+          case 'posts':
+            setPosts(data.posts || []);
+            break;
+          case 'comments':
+            setComments(data.comments || []);
+            break;
+          case 'media':
+            setMedia(data.media || []);
+            break;
+        }
+      }
+    } catch (error) {
+      console.error(`Error fetching ${activeTab}:`, error);
+    } finally {
+      setTabLoading(false);
+    }
+  }, [user, activeTab]);
 
   useEffect(() => {
     // Fetch user profile from backend
     fetchUserProfile();
   }, []);
+
+  useEffect(() => {
+    // Fetch data when tab changes
+    if (user && user.id) {
+      fetchTabData();
+    }
+  }, [activeTab, user, fetchTabData]);
 
   const fetchUserProfile = async () => {
     try {
@@ -37,39 +91,10 @@ const Profile = () => {
           location: data.user.location || '',
           website: data.user.website || ''
         });
-      } else {
-        // User not logged in, set default data
-        setUser({
-          name: 'John Doe',
-          username: '@johndoe',
-          email: 'john.doe@example.com',
-          bio: 'Software developer | Tech enthusiast | Coffee lover ☕',
-          location: 'San Francisco, CA',
-          website: 'https://johndoe.dev',
-          followers: 1234,
-          following: 567,
-          posts: 89,
-          joined: 'January 2023',
-          avatar: 'JD'
-        });
       }
       setLoading(false);
     } catch (error) {
       console.error('Error fetching profile:', error);
-      // Set default data on error
-      setUser({
-        name: 'John Doe',
-        username: '@johndoe',
-        email: 'john.doe@example.com',
-        bio: 'Software developer | Tech enthusiast | Coffee lover ☕',
-        location: 'San Francisco, CA',
-        website: 'https://johndoe.dev',
-        followers: 1234,
-        following: 567,
-        posts: 89,
-        joined: 'January 2023',
-        avatar: 'JD'
-      });
       setLoading(false);
     }
   };
@@ -121,7 +146,7 @@ const Profile = () => {
             {/* Avatar */}
             <div className="relative">
               <div className="w-32 h-32 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-2xl border-4 border-white">
-                <span className="text-white font-bold text-4xl">{user?.avatar || 'JD'}</span>
+                <span className="text-white font-bold text-4xl">{user?.avatar || 'U'}</span>
               </div>
               <button className="absolute bottom-0 right-0 w-10 h-10 bg-blue-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-blue-600 transition-colors">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -134,7 +159,7 @@ const Profile = () => {
             {/* User Info */}
             <div className="flex-1 text-center md:text-left">
               <h1 className="text-3xl font-bold text-gray-900">{user?.name}</h1>
-              <p className="text-gray-500 text-lg">{user?.username}</p>
+              <p className="text-gray-500 text-lg">@{user?.username}</p>
               <p className="text-gray-600 mt-2">{user?.bio}</p>
 
               <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 mt-4 text-sm text-gray-600">
@@ -186,15 +211,15 @@ const Profile = () => {
           {/* Stats */}
           <div className="grid grid-cols-3 gap-4 mt-6 pt-6 border-t border-gray-200">
             <div className="text-center">
-              <div className="text-2xl font-bold text-gray-900">{user?.posts}</div>
+              <div className="text-2xl font-bold text-gray-900">{user?.posts || 0}</div>
               <div className="text-sm text-gray-500">Posts</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-gray-900">{user?.followers}</div>
+              <div className="text-2xl font-bold text-gray-900">{user?.followers || 0}</div>
               <div className="text-sm text-gray-500">Followers</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-gray-900">{user?.following}</div>
+              <div className="text-2xl font-bold text-gray-900">{user?.following || 0}</div>
               <div className="text-sm text-gray-500">Following</div>
             </div>
           </div>
@@ -280,7 +305,7 @@ const Profile = () => {
         {/* Tabs */}
         <div className="bg-white rounded-2xl shadow-lg mb-6">
           <div className="flex border-b border-gray-200">
-            {['posts', 'media', 'likes'].map((tab) => (
+            {['posts', 'comments', 'media'].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -295,76 +320,126 @@ const Profile = () => {
             ))}
           </div>
 
-          {/* Posts Content */}
-          {activeTab === 'posts' && (
-            <div className="p-6 space-y-6">
-              {posts.map((post) => (
-                <div key={post.id} className="border-b border-gray-200 pb-6 last:border-b-0">
-                  <div className="flex items-start space-x-3">
-                    <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
-                      <span className="text-white font-semibold">{user?.avatar}</span>
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="font-semibold text-gray-900">{user?.name}</h4>
-                          <p className="text-sm text-gray-500">{post.timestamp}</p>
-                        </div>
-                        <button className="text-gray-400 hover:text-gray-600">
-                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                          </svg>
-                        </button>
-                      </div>
-                      <p className="text-gray-800 mt-2">{post.content}</p>
-                      {post.image && (
-                        <div className="mt-3 bg-gradient-to-br from-blue-100 to-purple-100 rounded-lg h-64 flex items-center justify-center">
-                          <span className="text-gray-400">Image placeholder</span>
-                        </div>
-                      )}
-                      <div className="flex items-center space-x-6 mt-4 text-gray-500">
-                        <button className="flex items-center space-x-2 hover:text-red-500 transition-colors">
-                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                          </svg>
-                          <span>{post.likes}</span>
-                        </button>
-                        <button className="flex items-center space-x-2 hover:text-blue-500 transition-colors">
-                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                          </svg>
-                          <span>{post.comments}</span>
-                        </button>
-                        <button className="flex items-center space-x-2 hover:text-green-500 transition-colors">
-                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {activeTab === 'media' && (
-            <div className="p-6">
-              <div className="grid grid-cols-3 gap-4">
-                {[1, 2, 3, 4, 5, 6].map((item) => (
-                  <div key={item} className="aspect-square bg-gradient-to-br from-blue-100 to-purple-100 rounded-lg flex items-center justify-center">
-                    <span className="text-gray-400">Media {item}</span>
-                  </div>
-                ))}
+          {/* Tab Content */}
+          <div className="p-6">
+            {tabLoading ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-500 mx-auto"></div>
+                <p className="mt-4 text-gray-600">Loading...</p>
               </div>
-            </div>
-          )}
+            ) : (
+              <>
+                {/* Posts Tab */}
+                {activeTab === 'posts' && (
+                  <div className="space-y-6">
+                    {posts.length === 0 ? (
+                      <div className="text-center py-12">
+                        <svg className="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <p className="text-gray-500 text-lg">No posts yet</p>
+                      </div>
+                    ) : (
+                      posts.map((post) => (
+                        <div key={post.id} className="border-b border-gray-200 pb-6 last:border-b-0">
+                          <div className="flex items-start space-x-3">
+                            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
+                              <span className="text-white font-semibold">{post.avatar}</span>
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <h4 className="font-semibold text-gray-900">{post.author}</h4>
+                                  <p className="text-sm text-gray-500">{post.time}</p>
+                                </div>
+                              </div>
+                              <p className="text-gray-800 mt-2">{post.content}</p>
+                              {post.image && (
+                                <div className="mt-3 rounded-lg overflow-hidden">
+                                  <img src={`http://localhost:5000${post.image}`} alt="Post" className="w-full h-auto" />
+                                </div>
+                              )}
+                              <div className="flex items-center space-x-6 mt-4 text-gray-500 text-sm">
+                                <span>{post.totalReactions || 0} reactions</span>
+                                <span>{post.comments} comments</span>
+                                <span>{post.shares} shares</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
 
-          {activeTab === 'likes' && (
-            <div className="p-6 text-center text-gray-500">
-              <p>Posts you've liked will appear here</p>
-            </div>
-          )}
+                {/* Comments Tab */}
+                {activeTab === 'comments' && (
+                  <div className="space-y-4">
+                    {comments.length === 0 ? (
+                      <div className="text-center py-12">
+                        <svg className="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                        </svg>
+                        <p className="text-gray-500 text-lg">No comments yet</p>
+                      </div>
+                    ) : (
+                      comments.map((comment) => (
+                        <div key={comment.id} className="bg-gray-50 rounded-lg p-4">
+                          <div className="flex items-start space-x-3">
+                            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
+                              <span className="text-white font-semibold text-sm">{comment.user.avatar}</span>
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between mb-2">
+                                <h4 className="font-semibold text-gray-900">{comment.user.name}</h4>
+                                <span className="text-xs text-gray-500">{comment.time}</span>
+                              </div>
+                              <p className="text-gray-800 mb-2">{comment.text}</p>
+                              <div className="text-xs text-gray-500">
+                                On post: "{comment.post.content.substring(0, 50)}..."
+                              </div>
+                              <div className="mt-2 text-sm text-gray-500">
+                                {comment.totalReactions || 0} reactions
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+
+                {/* Media Tab */}
+                {activeTab === 'media' && (
+                  <div>
+                    {media.length === 0 ? (
+                      <div className="text-center py-12">
+                        <svg className="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <p className="text-gray-500 text-lg">No media yet</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-3 gap-4">
+                        {media.map((item) => (
+                          <div key={item.id} className="aspect-square rounded-lg overflow-hidden bg-gray-100 cursor-pointer hover:opacity-90 transition-opacity">
+                            <img
+                              src={`http://localhost:5000${item.image}`}
+                              alt="Media"
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="gray" stroke-width="2"%3E%3Crect x="3" y="3" width="18" height="18" rx="2" /%3E%3Cline x1="9" y1="9" x2="15" y2="15" /%3E%3Cline x1="15" y1="9" x2="9" y2="15" /%3E%3C/svg%3E';
+                              }}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>

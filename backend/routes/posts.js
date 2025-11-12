@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
-<<<<<<< HEAD
 const multer = require('multer');
 const path = require('path');
 const Post = require('../models/Post');
 const User = require('../models/User');
+const Comment = require('../models/Comment');
 
 // Configure multer for image uploads
 const storage = multer.diskStorage({
@@ -50,21 +50,31 @@ router.get('/public', async (req, res) => {
       .limit(50);
 
     // Format posts for frontend
-    const formattedPosts = posts.map(post => ({
-      id: post._id,
-      author: post.author.name,
-      username: post.author.username,
-      avatar: post.author.name.split(' ').map(n => n[0]).join('').toUpperCase(),
-      time: getTimeAgo(post.createdAt),
-      content: post.content,
-      image: post.image,
-      feeling: post.feeling,
-      activity: post.activity,
-      location: post.location,
-      likes: post.likes.length,
-      comments: post.comments.length,
-      shares: post.shares
-    }));
+    const formattedPosts = posts.map(post => {
+      // Calculate reaction counts by type
+      const reactionCounts = post.reactions.reduce((acc, reaction) => {
+        acc[reaction.type] = (acc[reaction.type] || 0) + 1;
+        return acc;
+      }, {});
+
+      return {
+        id: post._id,
+        author: post.author.name,
+        username: post.author.username,
+        avatar: post.author.name.split(' ').map(n => n[0]).join('').toUpperCase(),
+        time: getTimeAgo(post.createdAt),
+        content: post.content,
+        image: post.image,
+        feeling: post.feeling,
+        activity: post.activity,
+        location: post.location,
+        likes: post.likes.length,
+        reactions: reactionCounts,
+        totalReactions: post.reactions.length,
+        comments: post.commentsCount || 0,
+        shares: post.shares
+      };
+    });
 
     res.json({ posts: formattedPosts });
   } catch (error) {
@@ -94,19 +104,33 @@ router.get('/feed', requireAuth, async (req, res) => {
       .limit(50);
 
     // Format posts for frontend
-    const formattedPosts = posts.map(post => ({
-      id: post._id,
-      author: post.author.name,
-      username: post.author.username,
-      avatar: post.author.name.split(' ').map(n => n[0]).join('').toUpperCase(),
-      time: getTimeAgo(post.createdAt),
-      content: post.content,
-      image: post.image,
-      likes: post.likes.length,
-      comments: post.comments.length,
-      shares: post.shares,
-      liked: post.likes.includes(userId)
-    }));
+    const formattedPosts = posts.map(post => {
+      // Calculate reaction counts by type
+      const reactionCounts = post.reactions.reduce((acc, reaction) => {
+        acc[reaction.type] = (acc[reaction.type] || 0) + 1;
+        return acc;
+      }, {});
+
+      // Find user's reaction
+      const userReaction = post.reactions.find(r => r.user.toString() === userId);
+
+      return {
+        id: post._id,
+        author: post.author.name,
+        username: post.author.username,
+        avatar: post.author.name.split(' ').map(n => n[0]).join('').toUpperCase(),
+        time: getTimeAgo(post.createdAt),
+        content: post.content,
+        image: post.image,
+        likes: post.likes.length,
+        reactions: reactionCounts,
+        totalReactions: post.reactions.length,
+        userReaction: userReaction ? userReaction.type : null,
+        comments: post.commentsCount || 0,
+        shares: post.shares,
+        liked: post.likes.includes(userId)
+      };
+    });
 
     res.json({ posts: formattedPosts });
   } catch (error) {
@@ -120,215 +144,11 @@ router.post('/create', requireAuth, upload.single('image'), async (req, res) => 
   try {
     const { content, feeling, activity, locationName } = req.body;
     const userId = req.session.userId;
-=======
-const Post = require('../models/Post');
-const User = require('../models/User');
-const { isAuthenticated } = require('../middleware/auth');
-
-// @route   GET /api/posts
-// @desc    Get all posts (feed)
-// @access  Public
-router.get('/', async (req, res) => {
-  try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const skip = (page - 1) * limit;
-
-    const posts = await Post.find({ visibility: 'public' })
-      .populate('author', 'name username avatar')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
-
-    const total = await Post.countDocuments({ visibility: 'public' });
-
-    const postsResponse = posts.map(post => ({
-      id: post._id,
-      author: {
-        id: post.author._id,
-        name: post.author.name,
-        username: post.author.username,
-        avatar: post.author.avatar
-      },
-      content: post.content,
-      images: post.images,
-      likes: post.likesCount,
-      comments: post.commentsCount,
-      shares: post.sharesCount,
-      liked: req.session.userId ? post.isLikedBy(req.session.userId) : false,
-      timestamp: post.getTimeAgo(),
-      createdAt: post.createdAt
-    }));
-
-    res.json({
-      posts: postsResponse,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit)
-      }
-    });
-  } catch (error) {
-    console.error('Fetch posts error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// @route   GET /api/posts/user/:userId
-// @desc    Get posts by user
-// @access  Public
-router.get('/user/:userId', async (req, res) => {
-  try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const skip = (page - 1) * limit;
-
-    const posts = await Post.find({
-      author: req.params.userId,
-      visibility: 'public'
-    })
-      .populate('author', 'name username avatar')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
-
-    const total = await Post.countDocuments({
-      author: req.params.userId,
-      visibility: 'public'
-    });
-
-    const postsResponse = posts.map(post => ({
-      id: post._id,
-      author: {
-        id: post.author._id,
-        name: post.author.name,
-        username: post.author.username,
-        avatar: post.author.avatar
-      },
-      content: post.content,
-      images: post.images,
-      likes: post.likesCount,
-      comments: post.commentsCount,
-      shares: post.sharesCount,
-      liked: req.session.userId ? post.isLikedBy(req.session.userId) : false,
-      timestamp: post.getTimeAgo(),
-      createdAt: post.createdAt
-    }));
-
-    res.json({
-      posts: postsResponse,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit)
-      }
-    });
-  } catch (error) {
-    console.error('Fetch user posts error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// @route   GET /api/posts/user/:userId/media
-// @desc    Get posts with media by user
-// @access  Public
-router.get('/user/:userId/media', async (req, res) => {
-  try {
-    const posts = await Post.find({
-      author: req.params.userId,
-      visibility: 'public',
-      'images.0': { $exists: true }
-    })
-      .select('images createdAt')
-      .sort({ createdAt: -1 });
-
-    const media = posts.flatMap(post =>
-      post.images.map(image => ({
-        id: post._id,
-        url: image.url,
-        alt: image.alt,
-        createdAt: post.createdAt
-      }))
-    );
-
-    res.json({ media });
-  } catch (error) {
-    console.error('Fetch user media error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// @route   GET /api/posts/user/:userId/likes
-// @desc    Get posts liked by user
-// @access  Public
-router.get('/user/:userId/likes', async (req, res) => {
-  try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const skip = (page - 1) * limit;
-
-    const posts = await Post.find({
-      likes: req.params.userId,
-      visibility: 'public'
-    })
-      .populate('author', 'name username avatar')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
-
-    const total = await Post.countDocuments({
-      likes: req.params.userId,
-      visibility: 'public'
-    });
-
-    const postsResponse = posts.map(post => ({
-      id: post._id,
-      author: {
-        id: post.author._id,
-        name: post.author.name,
-        username: post.author.username,
-        avatar: post.author.avatar
-      },
-      content: post.content,
-      images: post.images,
-      likes: post.likesCount,
-      comments: post.commentsCount,
-      shares: post.sharesCount,
-      liked: true,
-      timestamp: post.getTimeAgo(),
-      createdAt: post.createdAt
-    }));
-
-    res.json({
-      posts: postsResponse,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit)
-      }
-    });
-  } catch (error) {
-    console.error('Fetch liked posts error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// @route   POST /api/posts
-// @desc    Create a new post
-// @access  Private
-router.post('/', isAuthenticated, async (req, res) => {
-  try {
-    const { content, images, visibility } = req.body;
->>>>>>> ea9481fdf39e138c3a53bef91224b2e361704e22
 
     if (!content || content.trim().length === 0) {
       return res.status(400).json({ message: 'Post content is required' });
     }
 
-<<<<<<< HEAD
     const postData = {
       author: userId,
       content: content.trim()
@@ -387,7 +207,110 @@ router.post('/', isAuthenticated, async (req, res) => {
   }
 });
 
-// Like/Unlike a post
+// Add or update reaction to a post
+router.post('/:postId/react', requireAuth, async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const { reactionType } = req.body;
+    const userId = req.session.userId;
+
+    // Validate reaction type
+    const validReactions = ['like', 'love', 'haha', 'wow', 'sad', 'angry'];
+    if (!reactionType || !validReactions.includes(reactionType)) {
+      return res.status(400).json({ message: 'Invalid reaction type' });
+    }
+
+    const post = await Post.findById(postId);
+
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found' });
+    }
+
+    // Find if user already reacted
+    const existingReactionIndex = post.reactions.findIndex(
+      r => r.user.toString() === userId
+    );
+
+    if (existingReactionIndex > -1) {
+      // If same reaction, remove it (toggle off)
+      if (post.reactions[existingReactionIndex].type === reactionType) {
+        post.reactions.splice(existingReactionIndex, 1);
+      } else {
+        // Update to new reaction type
+        post.reactions[existingReactionIndex].type = reactionType;
+        post.reactions[existingReactionIndex].createdAt = new Date();
+      }
+    } else {
+      // Add new reaction
+      post.reactions.push({
+        user: userId,
+        type: reactionType
+      });
+    }
+
+    await post.save();
+
+    // Calculate reaction counts by type
+    const reactionCounts = post.reactions.reduce((acc, reaction) => {
+      acc[reaction.type] = (acc[reaction.type] || 0) + 1;
+      return acc;
+    }, {});
+
+    // Find user's current reaction
+    const userReaction = post.reactions.find(r => r.user.toString() === userId);
+
+    res.json({
+      message: 'Reaction updated successfully',
+      reactions: reactionCounts,
+      userReaction: userReaction ? userReaction.type : null,
+      totalReactions: post.reactions.length
+    });
+  } catch (error) {
+    console.error('Error reacting to post:', error);
+    res.status(500).json({ message: 'Error processing reaction' });
+  }
+});
+
+// Remove reaction from a post
+router.delete('/:postId/react', requireAuth, async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const userId = req.session.userId;
+
+    const post = await Post.findById(postId);
+
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found' });
+    }
+
+    // Find and remove user's reaction
+    const reactionIndex = post.reactions.findIndex(
+      r => r.user.toString() === userId
+    );
+
+    if (reactionIndex > -1) {
+      post.reactions.splice(reactionIndex, 1);
+      await post.save();
+    }
+
+    // Calculate reaction counts by type
+    const reactionCounts = post.reactions.reduce((acc, reaction) => {
+      acc[reaction.type] = (acc[reaction.type] || 0) + 1;
+      return acc;
+    }, {});
+
+    res.json({
+      message: 'Reaction removed successfully',
+      reactions: reactionCounts,
+      totalReactions: post.reactions.length
+    });
+  } catch (error) {
+    console.error('Error removing reaction:', error);
+    res.status(500).json({ message: 'Error removing reaction' });
+  }
+});
+
+// Like/Unlike a post (kept for backward compatibility)
 router.post('/:postId/like', requireAuth, async (req, res) => {
   try {
     const { postId } = req.params;
@@ -439,20 +362,221 @@ router.post('/:postId/comment', requireAuth, async (req, res) => {
       return res.status(404).json({ message: 'Post not found' });
     }
 
-    post.comments.push({
+    // Create new comment in Comment collection
+    const newComment = new Comment({
+      post: postId,
       user: userId,
-      text: text.trim()
+      text: text.trim(),
+      reactions: []
     });
 
+    await newComment.save();
+
+    // Increment commentsCount on the post
+    post.commentsCount = (post.commentsCount || 0) + 1;
     await post.save();
+
+    // Populate user info
+    await newComment.populate('user', 'name username');
 
     res.json({
       message: 'Comment added successfully',
-      comments: post.comments.length
+      comments: post.commentsCount,
+      comment: {
+        id: newComment._id,
+        text: newComment.text,
+        user: {
+          id: newComment.user._id,
+          name: newComment.user.name,
+          username: newComment.user.username,
+          avatar: newComment.user.name.split(' ').map(n => n[0]).join('').toUpperCase()
+        },
+        createdAt: newComment.createdAt,
+        reactions: []
+      }
     });
   } catch (error) {
     console.error('Error adding comment:', error);
     res.status(500).json({ message: 'Error adding comment' });
+  }
+});
+
+// Add or update reaction to a comment
+router.post('/:postId/comment/:commentId/react', requireAuth, async (req, res) => {
+  try {
+    const { postId, commentId } = req.params;
+    const { reactionType } = req.body;
+    const userId = req.session.userId;
+
+    // Validate reaction type
+    const validReactions = ['like', 'love', 'haha', 'wow', 'sad', 'angry'];
+    if (!reactionType || !validReactions.includes(reactionType)) {
+      return res.status(400).json({ message: 'Invalid reaction type' });
+    }
+
+    // Find the comment in Comment collection
+    const comment = await Comment.findOne({ _id: commentId, post: postId });
+
+    if (!comment) {
+      return res.status(404).json({ message: 'Comment not found' });
+    }
+
+    // Find if user already reacted to this comment
+    const existingReactionIndex = comment.reactions.findIndex(
+      r => r.user.toString() === userId
+    );
+
+    if (existingReactionIndex > -1) {
+      // If same reaction, remove it (toggle off)
+      if (comment.reactions[existingReactionIndex].type === reactionType) {
+        comment.reactions.splice(existingReactionIndex, 1);
+      } else {
+        // Update to new reaction type
+        comment.reactions[existingReactionIndex].type = reactionType;
+        comment.reactions[existingReactionIndex].createdAt = new Date();
+      }
+    } else {
+      // Add new reaction
+      comment.reactions.push({
+        user: userId,
+        type: reactionType
+      });
+    }
+
+    await comment.save();
+
+    // Calculate reaction counts by type
+    const reactionCounts = comment.reactions.reduce((acc, reaction) => {
+      acc[reaction.type] = (acc[reaction.type] || 0) + 1;
+      return acc;
+    }, {});
+
+    // Find user's current reaction
+    const userReaction = comment.reactions.find(r => r.user.toString() === userId);
+
+    res.json({
+      message: 'Reaction updated successfully',
+      reactions: reactionCounts,
+      userReaction: userReaction ? userReaction.type : null,
+      totalReactions: comment.reactions.length
+    });
+  } catch (error) {
+    console.error('Error reacting to comment:', error);
+    res.status(500).json({ message: 'Error processing reaction' });
+  }
+});
+
+// Remove reaction from a comment
+router.delete('/:postId/comment/:commentId/react', requireAuth, async (req, res) => {
+  try {
+    const { postId, commentId } = req.params;
+    const userId = req.session.userId;
+
+    // Find the comment in Comment collection
+    const comment = await Comment.findOne({ _id: commentId, post: postId });
+
+    if (!comment) {
+      return res.status(404).json({ message: 'Comment not found' });
+    }
+
+    // Find and remove user's reaction
+    const reactionIndex = comment.reactions.findIndex(
+      r => r.user.toString() === userId
+    );
+
+    if (reactionIndex > -1) {
+      comment.reactions.splice(reactionIndex, 1);
+      await comment.save();
+    }
+
+    // Calculate reaction counts by type
+    const reactionCounts = comment.reactions.reduce((acc, reaction) => {
+      acc[reaction.type] = (acc[reaction.type] || 0) + 1;
+      return acc;
+    }, {});
+
+    res.json({
+      message: 'Reaction removed successfully',
+      reactions: reactionCounts,
+      totalReactions: comment.reactions.length
+    });
+  } catch (error) {
+    console.error('Error removing reaction:', error);
+    res.status(500).json({ message: 'Error removing reaction' });
+  }
+});
+
+// Get comments for a specific post
+router.get('/:postId/comments', async (req, res) => {
+  try {
+    const { postId } = req.params;
+
+    // Verify post exists
+    const post = await Post.findById(postId);
+
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found' });
+    }
+
+    // Query Comment collection for comments on this post
+    const comments = await Comment.find({ post: postId })
+      .populate('user', 'name username')
+      .sort({ createdAt: -1 });
+
+    // Format comments with reaction data
+    const formattedComments = comments.map(comment => {
+      const reactionCounts = comment.reactions.reduce((acc, reaction) => {
+        acc[reaction.type] = (acc[reaction.type] || 0) + 1;
+        return acc;
+      }, {});
+
+      return {
+        id: comment._id,
+        text: comment.text,
+        user: {
+          id: comment.user._id,
+          name: comment.user.name,
+          username: comment.user.username,
+          avatar: comment.user.name.split(' ').map(n => n[0]).join('').toUpperCase()
+        },
+        createdAt: comment.createdAt,
+        reactions: reactionCounts,
+        totalReactions: comment.reactions.length
+      };
+    });
+
+    res.json({
+      comments: formattedComments,
+      total: formattedComments.length
+    });
+  } catch (error) {
+    console.error('Error fetching comments:', error);
+    res.status(500).json({ message: 'Error fetching comments' });
+  }
+});
+
+// Share a post
+router.post('/:postId/share', requireAuth, async (req, res) => {
+  try {
+    const { postId } = req.params;
+
+    const post = await Post.findById(postId);
+
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found' });
+    }
+
+    // Increment share count
+    post.shares = (post.shares || 0) + 1;
+    await post.save();
+
+    res.json({
+      message: 'Post shared successfully',
+      shares: post.shares
+    });
+  } catch (error) {
+    console.error('Error sharing post:', error);
+    res.status(500).json({ message: 'Error sharing post' });
   }
 });
 
@@ -463,67 +587,12 @@ router.delete('/:postId', requireAuth, async (req, res) => {
     const userId = req.session.userId;
 
     const post = await Post.findById(postId);
-=======
-    const post = new Post({
-      author: req.session.userId,
-      content,
-      images: images || [],
-      visibility: visibility || 'public'
-    });
-
-    await post.save();
-
-    // Add post to user's posts array
-    await User.findByIdAndUpdate(req.session.userId, {
-      $push: { posts: post._id }
-    });
-
-    await post.populate('author', 'name username avatar');
-
-    const postResponse = {
-      id: post._id,
-      author: {
-        id: post.author._id,
-        name: post.author.name,
-        username: post.author.username,
-        avatar: post.author.avatar
-      },
-      content: post.content,
-      images: post.images,
-      likes: 0,
-      comments: 0,
-      shares: 0,
-      liked: false,
-      timestamp: post.getTimeAgo(),
-      createdAt: post.createdAt
-    };
-
-    res.status(201).json({
-      message: 'Post created successfully',
-      post: postResponse
-    });
-  } catch (error) {
-    console.error('Create post error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// @route   PUT /api/posts/:postId
-// @desc    Update a post
-// @access  Private
-router.put('/:postId', isAuthenticated, async (req, res) => {
-  try {
-    const { content, images, visibility } = req.body;
-
-    const post = await Post.findById(req.params.postId);
->>>>>>> ea9481fdf39e138c3a53bef91224b2e361704e22
 
     if (!post) {
       return res.status(404).json({ message: 'Post not found' });
     }
 
     // Check if user is the author
-<<<<<<< HEAD
     if (post.author.toString() !== userId) {
       return res.status(403).json({ message: 'You can only delete your own posts' });
     }
@@ -533,73 +602,10 @@ router.put('/:postId', isAuthenticated, async (req, res) => {
     // Update user's post count
     await User.findByIdAndUpdate(userId, {
       $inc: { postsCount: -1 }
-=======
-    if (post.author.toString() !== req.session.userId) {
-      return res.status(403).json({ message: 'Not authorized to update this post' });
-    }
-
-    if (content) post.content = content;
-    if (images !== undefined) post.images = images;
-    if (visibility) post.visibility = visibility;
-
-    await post.save();
-    await post.populate('author', 'name username avatar');
-
-    const postResponse = {
-      id: post._id,
-      author: {
-        id: post.author._id,
-        name: post.author.name,
-        username: post.author.username,
-        avatar: post.author.avatar
-      },
-      content: post.content,
-      images: post.images,
-      likes: post.likesCount,
-      comments: post.commentsCount,
-      shares: post.sharesCount,
-      liked: post.isLikedBy(req.session.userId),
-      timestamp: post.getTimeAgo(),
-      createdAt: post.createdAt
-    };
-
-    res.json({
-      message: 'Post updated successfully',
-      post: postResponse
-    });
-  } catch (error) {
-    console.error('Update post error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// @route   DELETE /api/posts/:postId
-// @desc    Delete a post
-// @access  Private
-router.delete('/:postId', isAuthenticated, async (req, res) => {
-  try {
-    const post = await Post.findById(req.params.postId);
-
-    if (!post) {
-      return res.status(404).json({ message: 'Post not found' });
-    }
-
-    // Check if user is the author
-    if (post.author.toString() !== req.session.userId) {
-      return res.status(403).json({ message: 'Not authorized to delete this post' });
-    }
-
-    await Post.findByIdAndDelete(req.params.postId);
-
-    // Remove post from user's posts array
-    await User.findByIdAndUpdate(req.session.userId, {
-      $pull: { posts: req.params.postId }
->>>>>>> ea9481fdf39e138c3a53bef91224b2e361704e22
     });
 
     res.json({ message: 'Post deleted successfully' });
   } catch (error) {
-<<<<<<< HEAD
     console.error('Error deleting post:', error);
     res.status(500).json({ message: 'Error deleting post' });
   }
@@ -626,105 +632,5 @@ function getTimeAgo(date) {
 
   return 'Just now';
 }
-=======
-    console.error('Delete post error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// @route   POST /api/posts/:postId/like
-// @desc    Like a post
-// @access  Private
-router.post('/:postId/like', isAuthenticated, async (req, res) => {
-  try {
-    const post = await Post.findById(req.params.postId);
-
-    if (!post) {
-      return res.status(404).json({ message: 'Post not found' });
-    }
-
-    // Check if already liked
-    if (post.isLikedBy(req.session.userId)) {
-      return res.status(400).json({ message: 'Post already liked' });
-    }
-
-    post.likes.push(req.session.userId);
-    await post.save();
-
-    res.json({
-      message: 'Post liked successfully',
-      likesCount: post.likesCount
-    });
-  } catch (error) {
-    console.error('Like post error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// @route   DELETE /api/posts/:postId/like
-// @desc    Unlike a post
-// @access  Private
-router.delete('/:postId/like', isAuthenticated, async (req, res) => {
-  try {
-    const post = await Post.findById(req.params.postId);
-
-    if (!post) {
-      return res.status(404).json({ message: 'Post not found' });
-    }
-
-    // Check if not liked
-    if (!post.isLikedBy(req.session.userId)) {
-      return res.status(400).json({ message: 'Post not liked yet' });
-    }
-
-    post.likes = post.likes.filter(like => like.toString() !== req.session.userId);
-    await post.save();
-
-    res.json({
-      message: 'Post unliked successfully',
-      likesCount: post.likesCount
-    });
-  } catch (error) {
-    console.error('Unlike post error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// @route   POST /api/posts/:postId/comment
-// @desc    Add comment to post
-// @access  Private
-router.post('/:postId/comment', isAuthenticated, async (req, res) => {
-  try {
-    const { content } = req.body;
-
-    if (!content || content.trim().length === 0) {
-      return res.status(400).json({ message: 'Comment content is required' });
-    }
-
-    const post = await Post.findById(req.params.postId);
-
-    if (!post) {
-      return res.status(404).json({ message: 'Post not found' });
-    }
-
-    post.comments.push({
-      author: req.session.userId,
-      content
-    });
-
-    await post.save();
-    await post.populate('comments.author', 'name username avatar');
-
-    res.status(201).json({
-      message: 'Comment added successfully',
-      comment: post.comments[post.comments.length - 1],
-      commentsCount: post.commentsCount
-    });
-  } catch (error) {
-    console.error('Add comment error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
->>>>>>> ea9481fdf39e138c3a53bef91224b2e361704e22
 
 module.exports = router;

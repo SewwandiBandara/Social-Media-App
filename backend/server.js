@@ -14,6 +14,11 @@ const app = express();
 // Connect to MongoDB
 connectDB();
 
+// Load models to ensure they are registered with Mongoose
+require('./models/User');
+require('./models/Post');
+require('./models/Comment');
+
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

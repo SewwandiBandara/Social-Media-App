@@ -12,6 +12,9 @@ const Home = () => {
   const [location, setLocation] = useState('');
   const [showFeelings, setShowFeelings] = useState(false);
   const [showActivities, setShowActivities] = useState(false);
+  const [showComments, setShowComments] = useState({});
+  const [comments, setComments] = useState({});
+  const [commentText, setCommentText] = useState({});
   const fileInputRef = useRef(null);
 
   const feelings = [
@@ -83,6 +86,93 @@ const Home = () => {
       }
     } catch (error) {
       console.error('Error liking post:', error);
+    }
+  };
+
+  const toggleComments = async (postId) => {
+    if (showComments[postId]) {
+      // Close comments
+      setShowComments({ ...showComments, [postId]: false });
+    } else {
+      // Open comments and fetch them
+      setShowComments({ ...showComments, [postId]: true });
+      if (!comments[postId]) {
+        await fetchComments(postId);
+      }
+    }
+  };
+
+  const fetchComments = async (postId) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/posts/${postId}/comments`, {
+        credentials: 'include'
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setComments({ ...comments, [postId]: data.comments });
+      }
+    } catch (error) {
+      console.error('Error fetching comments:', error);
+    }
+  };
+
+  const handleAddComment = async (postId) => {
+    const text = commentText[postId];
+    if (!text || text.trim().length === 0) return;
+
+    try {
+      const response = await fetch(`http://localhost:5000/api/posts/${postId}/comment`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify({ text })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+
+        // Update post comment count
+        setPosts(posts.map(post =>
+          post.id === postId
+            ? { ...post, comments: data.comments }
+            : post
+        ));
+
+        // Clear comment text
+        setCommentText({ ...commentText, [postId]: '' });
+
+        // Refresh comments
+        await fetchComments(postId);
+      }
+    } catch (error) {
+      console.error('Error adding comment:', error);
+    }
+  };
+
+  const handleShare = async (postId) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/posts/${postId}/share`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+
+        // Update post share count
+        setPosts(posts.map(post =>
+          post.id === postId
+            ? { ...post, shares: data.shares }
+            : post
+        ));
+
+        alert('Post shared successfully!');
+      }
+    } catch (error) {
+      console.error('Error sharing post:', error);
     }
   };
 
@@ -423,19 +513,88 @@ const Home = () => {
                       </svg>
                       <span className="font-medium">Like</span>
                     </button>
-                    <button className="flex items-center space-x-2 px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors">
+                    <button
+                      onClick={() => toggleComments(post.id)}
+                      className="flex items-center space-x-2 px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
+                    >
                       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                       </svg>
                       <span className="font-medium">Comment</span>
                     </button>
-                    <button className="flex items-center space-x-2 px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors">
+                    <button
+                      onClick={() => handleShare(post.id)}
+                      className="flex items-center space-x-2 px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
+                    >
                       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                       </svg>
                       <span className="font-medium">Share</span>
                     </button>
                   </div>
+
+                  {/* Comments Section */}
+                  {showComments[post.id] && (
+                    <div className="px-4 py-3 border-t border-gray-100">
+                      {/* Add Comment Input */}
+                      <div className="flex items-start space-x-3 mb-4">
+                        <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center flex-shrink-0">
+                          <span className="text-white font-semibold text-sm">
+                            {user?.name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U'}
+                          </span>
+                        </div>
+                        <div className="flex-1 flex space-x-2">
+                          <input
+                            type="text"
+                            placeholder="Write a comment..."
+                            value={commentText[post.id] || ''}
+                            onChange={(e) => setCommentText({ ...commentText, [post.id]: e.target.value })}
+                            onKeyPress={(e) => {
+                              if (e.key === 'Enter') {
+                                handleAddComment(post.id);
+                              }
+                            }}
+                            className="flex-1 px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                          <button
+                            onClick={() => handleAddComment(post.id)}
+                            disabled={!commentText[post.id]?.trim()}
+                            className="px-4 py-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            Post
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Comments List */}
+                      <div className="space-y-3">
+                        {comments[post.id]?.length === 0 ? (
+                          <p className="text-gray-500 text-sm text-center py-4">No comments yet. Be the first to comment!</p>
+                        ) : (
+                          comments[post.id]?.map((comment) => (
+                            <div key={comment.id} className="flex items-start space-x-3">
+                              <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
+                                <span className="text-white font-semibold text-xs">{comment.user.avatar}</span>
+                              </div>
+                              <div className="flex-1">
+                                <div className="bg-gray-100 rounded-2xl px-4 py-2">
+                                  <p className="font-semibold text-sm text-gray-900">{comment.user.name}</p>
+                                  <p className="text-gray-800 text-sm">{comment.text}</p>
+                                </div>
+                                <div className="flex items-center space-x-4 mt-1 px-2">
+                                  <button className="text-xs text-gray-500 hover:text-blue-600">Like</button>
+                                  <button className="text-xs text-gray-500 hover:text-blue-600">Reply</button>
+                                  <span className="text-xs text-gray-400">
+                                    {new Date(comment.createdAt).toLocaleDateString()}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))
             )}

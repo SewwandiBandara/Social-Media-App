@@ -5,7 +5,15 @@
       "Bash(npm run dev:*)",
       "Bash(node server.js:*)",
       "Bash(node -c:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(npm start)",
+      "Bash(taskkill:*)",
+      "Bash(nul)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(tasklist:*)",
+      "Bash(cmd /c \"taskkill /F /PID 1476\")",
+      "Bash(powershell:*)"
     ],
     "deny": [],
     "ask": []
