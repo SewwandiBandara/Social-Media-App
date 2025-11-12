@@ -3,51 +3,51 @@ import { useState } from 'react';
 const Messages = () => {
   // Sample conversations data
   const [conversations] = useState([
-    // {
-    //   id: 1,
-    //   name: 'Sarah Johnson',
-    //   avatar: 'SJ',
-    //   lastMessage: 'Hey! How are you doing?',
-    //   timestamp: '2m ago',
-    //   unread: 2,
-    //   online: true
-    // },
-    // {
-    //   id: 2,
-    //   name: 'Mike Chen',
-    //   avatar: 'MC',
-    //   lastMessage: 'Thanks for the help yesterday!',
-    //   timestamp: '1h ago',
-    //   unread: 0,
-    //   online: true
-    // },
-    // {
-    //   id: 3,
-    //   name: 'Emma Wilson',
-    //   avatar: 'EW',
-    //   lastMessage: 'See you at the meeting',
-    //   timestamp: '3h ago',
-    //   unread: 1,
-    //   online: false
-    // },
-    // {
-    //   id: 4,
-    //   name: 'David Lee',
-    //   avatar: 'DL',
-    //   lastMessage: 'Great job on the project!',
-    //   timestamp: '1d ago',
-    //   unread: 0,
-    //   online: false
-    // },
-    // {
-    //   id: 5,
-    //   name: 'Lisa Anderson',
-    //   avatar: 'LA',
-    //   lastMessage: 'Can we reschedule?',
-    //   timestamp: '2d ago',
-    //   unread: 0,
-    //   online: true
-    // }
+    {
+      id: 1,
+      name: 'Sarah Johnson',
+      avatar: 'SJ',
+      lastMessage: 'Hey! How are you doing?',
+      timestamp: '2m ago',
+      unread: 2,
+      online: true
+    },
+    {
+      id: 2,
+      name: 'Mike Chen',
+      avatar: 'MC',
+      lastMessage: 'Thanks for the help yesterday!',
+      timestamp: '1h ago',
+      unread: 0,
+      online: true
+    },
+    {
+      id: 3,
+      name: 'Emma Wilson',
+      avatar: 'EW',
+      lastMessage: 'See you at the meeting',
+      timestamp: '3h ago',
+      unread: 1,
+      online: false
+    },
+    {
+      id: 4,
+      name: 'David Lee',
+      avatar: 'DL',
+      lastMessage: 'Great job on the project!',
+      timestamp: '1d ago',
+      unread: 0,
+      online: false
+    },
+    {
+      id: 5,
+      name: 'Lisa Anderson',
+      avatar: 'LA',
+      lastMessage: 'Can we reschedule?',
+      timestamp: '2d ago',
+      unread: 0,
+      online: true
+    }
   ]);
 
   // Sample messages for selected conversation

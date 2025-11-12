@@ -52,7 +52,6 @@ app.use(session(sessionConfig));
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/profile', require('./routes/profile'));
 app.use('/api/posts', require('./routes/posts'));
-console.log('✓ Routes loaded: /api/auth, /api/profile, /api/posts');
 
 // Health check route
 app.get('/api/health', (req, res) => {

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const Navbar = () => {
@@ -8,7 +8,6 @@ const Navbar = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
 
   const isActive = (path) => location.pathname === path;
 
@@ -41,7 +40,7 @@ const Navbar = () => {
                 <span className="text-white font-bold text-xl">S</span>
               </div>
               <span className="text-xl font-bold text-gray-900 hidden sm:block">
-                Social
+                SnapZy
               </span>
             </Link>
           </div>
@@ -131,8 +130,15 @@ const Navbar = () => {
             </Link>
 
             {/* Notifications */}
-            <button
+            {/* <button
               className="p-3 rounded-lg hover:bg-gray-100 transition-colors relative text-gray-600"
+              title="Notifications"
+            > */}
+            <Link
+              to="/notifications"
+              className={`p-3 rounded-lg hover:bg-gray-100 transition-colors relative group ${
+                isActive('/messages') ? 'text-purple-600' : 'text-gray-600'
+              }`}
               title="Notifications"
             >
               <svg
@@ -150,7 +156,8 @@ const Navbar = () => {
               </svg>
               {/* Notification Badge */}
               <span className="absolute top-2 right-2 h-2 w-2 bg-red-500 rounded-full"></span>
-            </button>
+            {/* </button> */}
+            </Link>
 
             {/* Create Post Button */}
             <button className="ml-2 px-4 py-2 bg-purple-600 text-white rounded-full hover:bg-purple-700 transition-colors font-medium flex items-center space-x-2">
